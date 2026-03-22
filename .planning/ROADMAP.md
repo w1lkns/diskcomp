@@ -1,7 +1,8 @@
 # Roadmap: diskcomp
 
 **Created:** 2026-03-22
-**Milestone:** v1.0 — Shareable, safe, cross-platform drive comparison tool
+**Milestone:** v1.0 — Shareable, safe, cross-platform drive comparison tool ✓ COMPLETE
+**Next milestone:** v1.1 — Faster, broader reach, better UX
 
 ## Phases
 
@@ -10,6 +11,10 @@
 - [x] **Phase 3: Drive Health + Setup** - Drive picker, health checks, SMART, filesystem detection ✓ COMPLETE
 - [x] **Phase 4: Guided Deletion** - Mode A/B deletion, undo log, read-only detection ✓ COMPLETE
 - [x] **Phase 5: Packaging + Distribution** - Single .py, pip, GitHub Actions CI ✓ COMPLETE
+- [ ] **Phase 6: Performance** - Two-pass hashing (size filter → hash only candidates), skip uniques fast
+- [ ] **Phase 7: UX Polish** - Pre-deletion summary, cleaner flag names, within-drive dedup mode
+- [ ] **Phase 8: Standalone Distribution** - PyInstaller binary, Homebrew formula, GitHub Releases
+- [ ] **Phase 9: Claude Code Skill** - Natural language drive management from Claude Code conversations
 
 ## Phase Details
 
@@ -103,6 +108,41 @@ Plans:
 | 3. Drive Health + Setup | 3/3 | Complete    | 2026-03-22 |
 | 4. Guided Deletion | 3/3 | Complete    | 2026-03-22 |
 | 5. Packaging + Distribution | 1/1 | Complete    | 2026-03-23 |
+| 6. Performance | —   | Planned     | — |
+| 7. UX Polish | —   | Planned     | — |
+| 8. Standalone Distribution | —   | Planned     | — |
+
+### Phase 6: Performance
+**Goal**: Large drives (500GB+) scan in reasonable time. Skip obvious non-duplicates before hashing.
+**Depends on**: Phase 5
+**Motivation**: SHA256-hashing every file ≥1KB on a 1TB drive is the #1 practical complaint. Files with unique sizes cannot be duplicates — filter them first and hash only size-collision candidates.
+**Success Criteria**:
+  1. Two-pass scan: collect sizes first, hash only files that share a size with at least one other file
+  2. Benchmark shows ≥5× speedup on drives with <10% duplicate rate (typical real-world drives)
+  3. All existing tests pass; results are identical to the single-pass approach
+  4. Progress UI updated to reflect two-phase scan (size pass + hash pass)
+
+### Phase 7: UX Polish + Single-Drive Mode
+**Goal**: First-time users understand the tool immediately; single-drive users get the same safe dedup experience without needing a second drive.
+**Depends on**: Phase 6
+**Motivation**: `--keep` / `--other` naming is unclear; no summary before deletion; the most common use case ("my drive is full") requires two drives today.
+**Success Criteria**:
+  1. Pre-deletion summary shown: total duplicates found, total MB recoverable, before any prompts
+  2. Flag aliases added: `--drive-a` / `--drive-b` as alternatives to `--keep` / `--other`
+  3. `--single <path>` mode: find files that appear more than once on the same drive, then hand off to the existing guided deletion workflow (same safety guarantees, same undo log)
+  4. Interactive no-args mode offers a third option alongside two-drive compare: "Clean up a single drive"
+  5. Post-scan "next steps" block printed after every scan: exact commands to review, delete, and undo — using the actual report filename generated
+  6. NTFS-on-macOS limitation called out explicitly in health check output and README
+
+### Phase 8: Standalone Distribution
+**Goal**: Non-developers can download and run diskcomp with zero setup. No Python required.
+**Depends on**: Phase 7
+**Motivation**: The biggest barrier to adoption is Python. A standalone binary removes it entirely. Homebrew covers the remaining macOS technical users.
+**Success Criteria**:
+  1. PyInstaller builds a single-file binary for macOS, Linux, and Windows via CI
+  2. Binaries attached to GitHub Releases automatically on version tag
+  3. Homebrew formula in a `homebrew-diskcomp` tap: `brew install w1lkns/diskcomp/diskcomp`
+  4. README updated with binary download and `brew install` as primary install paths
 
 ---
 *Roadmap created: 2026-03-22*
@@ -110,4 +150,16 @@ Plans:
 *Phase 4 complete: 2026-03-22 18:15*
 *Phase 5 plan created: 2026-03-22*
 *Phase 5 complete: 2026-03-23 00:01*
-*Project complete: All 5 phases (15 total plans) executed successfully*
+*v1.0 complete: All 5 phases (15 total plans) executed successfully*
+*v1.1 phases added: 2026-03-23 (Phase 6: Performance, Phase 7: UX Polish, Phase 8: Standalone Distribution, Phase 9: Claude Code Skill)*
+
+### Phase 9: Claude Code Skill
+**Goal**: diskcomp usable from a Claude Code conversation with no flags or docs required.
+**Depends on**: Phase 8
+**Motivation**: Natural language is a lower barrier than CLI flags for most users. An agent skill also positions diskcomp as a reference implementation for AI-friendly CLI tools.
+**Success Criteria**:
+  1. `/diskcomp` skill installed in Claude Code — triggers on "compare my drives", "clean up my downloads", etc.
+  2. Skill handles conversational setup: which drives, which to keep, confirms before any deletion
+  3. Dry-run output surfaced in conversation before user approves deletion
+  4. Undo available as a follow-up: "undo that" maps to `--undo` with the last report
+  5. Works via the standalone binary (Phase 8) — no Python requirement for skill users
