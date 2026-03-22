@@ -17,6 +17,7 @@ from diskcomp.ui import UIHandler
 from diskcomp.types import ScanError, InvalidPathError, FileNotReadableError
 from diskcomp.drive_picker import interactive_drive_picker
 from diskcomp.health import check_drive_health
+from diskcomp.benchmarker import benchmark_read_speed
 
 
 def parse_args(args=None):
@@ -107,10 +108,32 @@ def display_health_checks(keep_path, other_path, ui):
     keep_health = check_drive_health(keep_path)
     _display_health_result("Keep", keep_health)
 
+    # Handle benchmark failure with retry for keep drive
+    if keep_health.benchmark_result and not keep_health.benchmark_result.success:
+        retry = input(f"Benchmark failed: {keep_health.benchmark_result.error}. Retry? (y/n): ").strip().lower()
+        if retry in ['y', 'yes']:
+            print(f"Retrying benchmark on '{keep_path}'...", file=sys.stderr)
+            keep_health.benchmark_result = benchmark_read_speed(keep_path)
+            if keep_health.benchmark_result.success:
+                print(f"  Read speed: {keep_health.benchmark_result.speed_mbps:.1f} MB/s", file=sys.stderr)
+            else:
+                print(f"  Benchmark failed again: {keep_health.benchmark_result.error}. Proceeding without speed check.", file=sys.stderr)
+
     # Check other drive
     print(f"Checking '{other_path}'...", file=sys.stderr)
     other_health = check_drive_health(other_path)
     _display_health_result("Other", other_health)
+
+    # Handle benchmark failure with retry for other drive (if writable)
+    if other_health.benchmark_result and not other_health.benchmark_result.success:
+        retry = input(f"Benchmark failed: {other_health.benchmark_result.error}. Retry? (y/n): ").strip().lower()
+        if retry in ['y', 'yes']:
+            print(f"Retrying benchmark on '{other_path}'...", file=sys.stderr)
+            other_health.benchmark_result = benchmark_read_speed(other_path)
+            if other_health.benchmark_result.success:
+                print(f"  Read speed: {other_health.benchmark_result.speed_mbps:.1f} MB/s", file=sys.stderr)
+            else:
+                print(f"  Benchmark failed again: {other_health.benchmark_result.error}. Proceeding without speed check.", file=sys.stderr)
 
     # If both drives are readable, proceed (warnings don't block)
     if keep_health.is_writable and other_health.is_writable:
@@ -134,9 +157,21 @@ def _display_health_result(drive_name, health):
     print(f"  Filesystem: {health.fstype}", file=sys.stderr)
     print(f"  Writable: {'Yes' if health.is_writable else 'NO (READ-ONLY)'}", file=sys.stderr)
 
+    # Display benchmark result if available
+    if health.benchmark_result:
+        if health.benchmark_result.success:
+            print(f"  Read speed: {health.benchmark_result.speed_mbps:.1f} MB/s", file=sys.stderr)
+        else:
+            print(f"  Benchmark failed: {health.benchmark_result.error}", file=sys.stderr)
+
     if health.warnings:
         for warning in health.warnings:
-            print(f"  WARNING: {warning}", file=sys.stderr)
+            if "To fix:" in warning:
+                # Highlight fix instructions separately
+                fix_part = warning.split("To fix: ")[1] if "To fix: " in warning else warning
+                print(f"  FIX: {fix_part}", file=sys.stderr)
+            else:
+                print(f"  WARNING: {warning}", file=sys.stderr)
 
     if health.errors:
         for error in health.errors:
