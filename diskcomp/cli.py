@@ -6,6 +6,7 @@ together the scanner, hasher, and reporter modules into a complete workflow.
 """
 
 import argparse
+import json
 import os
 import sys
 from datetime import datetime
@@ -84,6 +85,20 @@ Examples:
         choices=['csv', 'json'],
         default='csv',
         help='Report format (csv or json, default: csv)'
+    )
+
+    parser.add_argument(
+        '--delete-from',
+        type=str,
+        default=None,
+        help='Delete duplicates from an existing report CSV/JSON file'
+    )
+
+    parser.add_argument(
+        '--undo',
+        type=str,
+        default=None,
+        help='View audit log of deleted files (permanent; restore not possible)'
     )
 
     return parser.parse_args(args)
@@ -178,6 +193,103 @@ def _display_health_result(drive_name, health):
             print(f"  ERROR: {error}", file=sys.stderr)
 
 
+def _check_deletion_readiness(candidates: list) -> tuple:
+    """
+    Check which candidate files are deletable (not read-only).
+
+    Args:
+        candidates: List of dicts from ReportReader
+
+    Returns:
+        (deletable_candidates, readonly_warnings) where deletable is filtered
+        list of candidates on writable drives, readonly_warnings is list of
+        paths that are read-only or on protected drives.
+    """
+    from diskcomp.health import check_drive_health, get_fix_instructions
+
+    deletable = []
+    readonly_warnings = []
+
+    for candidate in candidates:
+        other_path = candidate['other_path']
+        try:
+            # Check if parent drive is writable
+            # Extract drive root from path (first part of path that's mounted)
+            drive_root = other_path.split(os.sep)[0] or os.sep
+            if sys.platform == 'win32':
+                # Windows: drive letter is first char + colon
+                drive_root = other_path[0] + ':'
+
+            health = check_drive_health(drive_root)
+            if health.is_writable:
+                deletable.append(candidate)
+            else:
+                fix = get_fix_instructions(health.fstype, sys.platform, drive_root)
+                msg = f"{other_path}: Drive is read-only."
+                if fix:
+                    msg += f" To fix: {fix}"
+                readonly_warnings.append(msg)
+        except Exception as e:
+            # If health check fails, assume deletable (user can retry)
+            deletable.append(candidate)
+
+    return deletable, readonly_warnings
+
+
+def _show_undo_log(log_file_path: str) -> int:
+    """
+    Display audit view of deleted files from undo log (D-14, D-15).
+
+    Args:
+        log_file_path: Path to undo log JSON file
+
+    Returns:
+        0 on success, 1 on error
+    """
+    try:
+        if not os.path.isfile(log_file_path):
+            print(f"Error: Undo log file not found: {log_file_path}", file=sys.stderr)
+            return 1
+
+        with open(log_file_path, 'r') as f:
+            entries = json.load(f)
+
+        if not entries:
+            print("Undo log is empty.", file=sys.stderr)
+            return 0
+
+        # Display header
+        print("\n=== Undo Log ===", file=sys.stderr)
+        print(f"File: {log_file_path}\n", file=sys.stderr)
+
+        # Display entries
+        total_size_mb = 0.0
+        for entry in entries:
+            path = entry.get('path', 'UNKNOWN')
+            size_mb = float(entry.get('size_mb', 0))
+            hash_val = entry.get('hash', 'UNKNOWN')
+            deleted_at = entry.get('deleted_at', 'UNKNOWN')
+
+            total_size_mb += size_mb
+
+            hash_short = hash_val[:16] + "..." if len(hash_val) > 16 else hash_val
+            print(f"{path}", file=sys.stderr)
+            print(f"  Size: {size_mb} MB | Hash: {hash_short} | Deleted: {deleted_at}", file=sys.stderr)
+
+        # Summary
+        print(f"\nSummary: {len(entries)} files deleted, {total_size_mb:.2f} MB freed", file=sys.stderr)
+        print("\nThese files were permanently deleted. Restore is not possible.", file=sys.stderr)
+
+        return 0
+
+    except json.JSONDecodeError as e:
+        print(f"Error: Invalid JSON in undo log: {e}", file=sys.stderr)
+        return 1
+    except Exception as e:
+        print(f"Error reading undo log: {e}", file=sys.stderr)
+        return 1
+
+
 def main(args=None):
     """
     Main orchestration function.
@@ -193,6 +305,98 @@ def main(args=None):
     # Parse arguments
     if args is None:
         args = parse_args()
+
+    # Handle --undo flag (audit view only, no restoration)
+    if args.undo:
+        return _show_undo_log(args.undo)
+
+    # Handle --delete-from flag (deletion workflow)
+    if args.delete_from:
+        try:
+            # Validate report file exists
+            if not os.path.isfile(args.delete_from):
+                print(f"Error: Report file not found: {args.delete_from}", file=sys.stderr)
+                return 1
+
+            # Load report and filter for deletion candidates
+            from diskcomp.reporter import ReportReader
+            from diskcomp.deletion import DeletionOrchestrator
+
+            print(f"\nLoading report: {args.delete_from}", file=sys.stderr)
+            try:
+                candidates = ReportReader.load(args.delete_from)
+            except Exception as e:
+                print(f"Error reading report: {e}", file=sys.stderr)
+                return 1
+
+            if not candidates:
+                print("No files marked for deletion in this report.", file=sys.stderr)
+                return 0
+
+            # Check for read-only drives
+            print(f"\nFound {len(candidates)} files to delete.", file=sys.stderr)
+            deletable, readonly_warnings = _check_deletion_readiness(candidates)
+
+            if readonly_warnings:
+                print("\nSome files are on read-only drives:", file=sys.stderr)
+                for warning in readonly_warnings:
+                    print(f"  - {warning}", file=sys.stderr)
+                print(f"\nProceeding with {len(deletable)} deletable files.", file=sys.stderr)
+                candidates = deletable
+
+            if not candidates:
+                print("Error: All files are on read-only drives. Cannot proceed.", file=sys.stderr)
+                return 1
+
+            # Prompt for deletion mode (D-04, D-03)
+            mode_choice = input("\nDeletion mode? (interactive/batch/skip): ").strip().lower()
+            if mode_choice == 'skip' or not mode_choice:
+                print("Deletion skipped.", file=sys.stderr)
+                return 0
+
+            if mode_choice.startswith('i'):
+                mode = 'interactive'
+            elif mode_choice.startswith('b'):
+                mode = 'batch'
+            else:
+                print(f"Invalid choice: {mode_choice}. Skipping deletion.", file=sys.stderr)
+                return 0
+
+            # Create UI and orchestrator
+            ui = UIHandler.create()
+            orchestrator = DeletionOrchestrator(candidates, ui, args.delete_from)
+
+            if mode == 'interactive':
+                result = orchestrator.interactive_mode()
+            else:
+                result = orchestrator.batch_mode()
+
+            # Display results (D-10)
+            print(f"\nDeletion complete.", file=sys.stderr)
+            print(f"Files deleted: {result.files_deleted}", file=sys.stderr)
+            print(f"Space freed: {result.space_freed_mb:.2f} MB", file=sys.stderr)
+            if result.undo_log_path:
+                print(f"Undo log: {result.undo_log_path}", file=sys.stderr)
+            if result.aborted:
+                remaining = len(candidates) - result.files_deleted
+                print(f"\n^C Aborted. {result.files_deleted} files deleted ({result.space_freed_mb:.2f} MB freed) before abort.", file=sys.stderr)
+                if result.undo_log_path:
+                    print(f"Undo log: {result.undo_log_path}", file=sys.stderr)
+                print(f"Remaining {remaining} files were not deleted.", file=sys.stderr)
+            if result.errors:
+                print(f"\nWarnings/errors encountered:", file=sys.stderr)
+                for error in result.errors:
+                    print(f"  - {error}", file=sys.stderr)
+
+            ui.close()
+            return 0
+
+        except KeyboardInterrupt:
+            print(f"\n^C Aborted by user.", file=sys.stderr)
+            return 0
+        except Exception as e:
+            print(f"Error during deletion: {e}", file=sys.stderr)
+            return 1
 
     # Instantiate UI
     ui = UIHandler.create()
