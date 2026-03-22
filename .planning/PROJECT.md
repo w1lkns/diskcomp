@@ -17,15 +17,18 @@ The user must always feel in control: no file is ever deleted without explicit c
 
 ### Active
 
-- [ ] Terminal UI: live progress bar, per-folder completion ticks, speed + ETA display
-- [ ] Terminal UI: live progress bar, per-folder completion ticks, speed + ETA display
-- [ ] Drive health checks: space summary, filesystem detection, read speed test, SMART data (optional)
-- [ ] Pre-scan questions: ask user which drive to keep, confirm before any destructive step
-- [ ] Guided deletion — Mode A: interactive per-file confirmation with dry-run
-- [ ] Guided deletion — Mode B: full workflow with undo log and abort-at-any-time
-- [ ] User picks deletion mode at runtime (or skips deletion entirely)
-- [ ] Single-file distribution: `diskcomp.py` with zero mandatory deps
-- [ ] pip package: `pip install diskcomp` entry point
+_(All v1.0 requirements validated — see Validated section)_
+
+### Validated (continued)
+
+- [x] Terminal UI: live progress bar, per-folder completion ticks, speed + ETA display — *Validated in Phase 2: Terminal UI + Progress*
+- [x] Drive health checks: space summary, filesystem detection, read speed test, SMART data (optional) — *Validated in Phase 3: Drive Health + Pre-Scan*
+- [x] Pre-scan questions: ask user which drive to keep, confirm before any destructive step — *Validated in Phase 3: Drive Health + Pre-Scan*
+- [x] Guided deletion — Mode A: interactive per-file confirmation with dry-run — *Validated in Phase 4: Guided Deletion*
+- [x] Guided deletion — Mode B: full workflow with undo log and abort-at-any-time — *Validated in Phase 4: Guided Deletion*
+- [x] User picks deletion mode at runtime (or skips deletion entirely) — *Validated in Phase 4: Guided Deletion*
+- [x] Single-file distribution: `diskcomp.py` with zero mandatory deps — *Validated in Phase 5: Packaging + Distribution*
+- [x] pip package: `pip install diskcomp` entry point — *Validated in Phase 5: Packaging + Distribution*
 
 ### Out of Scope
 
@@ -60,4 +63,4 @@ The user must always feel in control: no file is ever deleted without explicit c
 | Undo log over recycle bin | Cross-platform recycle bin APIs are unreliable; log-then-delete is simpler and auditable | — Pending |
 
 ---
-*Last updated: 2026-03-22 after Phase 1 completion*
+*Last updated: 2026-03-22 after Phase 5 completion — v1.0 milestone complete*
