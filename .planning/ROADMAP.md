@@ -7,7 +7,7 @@
 
 - [x] **Phase 1: Core Engine + Report** - Scanner, SHA256 hashing, CSV/JSON output, CLI ✓ COMPLETE
 - [x] **Phase 2: Terminal UI** - Rich progress bars, per-folder ticks, ANSI fallback ✓ COMPLETE
-- [ ] **Phase 3: Drive Health + Setup** - Drive picker, health checks, SMART, filesystem detection
+- [x] **Phase 3: Drive Health + Setup** - Drive picker, health checks, SMART, filesystem detection ✓ COMPLETE
 - [ ] **Phase 4: Guided Deletion** - Mode A/B deletion, undo log, read-only detection
 - [ ] **Phase 5: Packaging + Distribution** - Single .py, pip, GitHub Actions CI
 
@@ -60,8 +60,8 @@ Plans:
 
 Plans:
 - [x] 03-01-PLAN.md — Health Checks (space, filesystem, SMART, read-only detection, benchmarker) ✓ COMPLETE
-- [ ] 03-02-PLAN.md — Interactive Drive Picker (enumerate drives, user selection, input validation)
-- [ ] 03-03-PLAN.md — CLI Integration (no-args mode, health checks before scan, user confirmation)
+- [x] 03-02-PLAN.md — Interactive Drive Picker (enumerate drives, user selection, input validation) ✓ COMPLETE
+- [x] 03-03-PLAN.md — CLI Integration (no-args mode, health checks before scan, user confirmation) ✓ COMPLETE
 
 ### Phase 4: Guided Deletion
 **Goal**: Turn the report into action — safely. Two modes, undo log, zero surprises.
@@ -71,9 +71,14 @@ Plans:
   1. Deletion only starts from an existing report file, never from scan results directly
   2. Mode A (interactive): user confirms y/n/skip/abort per file
   3. Mode B (workflow): dry-run preview → summary → "type DELETE to confirm" → execute
-  4. Undo log written before any file is deleted; `--undo` flag restores deleted files
+  4. Undo log written before any file is deleted; `--undo` flag reads audit log (restore not possible)
   5. Read-only filesystem detection warns and skips deletion on protected drives
-**Plans**: TBD
+**Plans**: 3 plans
+
+Plans:
+- [ ] 04-01-PLAN.md — Foundation (Types, Report Reader, Undo Log)
+- [ ] 04-02-PLAN.md — Orchestration (Mode A & B workflows, UI extensions)
+- [ ] 04-03-PLAN.md — CLI Integration (--delete-from and --undo flags)
 
 ### Phase 5: Packaging + Distribution
 **Goal**: Anyone can install and run diskcomp in under 60 seconds.
@@ -92,10 +97,10 @@ Plans:
 |-------|----------------|--------|-----------|
 | 1. Core Engine + Report | 3/3 | Complete    | 2026-03-22 |
 | 2. Terminal UI | 3/3 | Complete    | 2026-03-22 |
-| 3. Drive Health + Setup | 1/3 | In Progress | 2026-03-22 (01) |
-| 4. Guided Deletion | 0/TBD | Not started | - |
+| 3. Drive Health + Setup | 3/3 | Complete    | 2026-03-22 |
+| 4. Guided Deletion | 0/3 | Planned     | 2026-03-22 |
 | 5. Packaging + Distribution | 0/TBD | Not started | - |
 
 ---
 *Roadmap created: 2026-03-22*
-*Phase 3 plans created: 2026-03-22*
+*Phase 4 plans created: 2026-03-22*
