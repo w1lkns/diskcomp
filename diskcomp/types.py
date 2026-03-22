@@ -6,7 +6,7 @@ the diskcomp scanner, hasher, and reporter modules.
 """
 
 from dataclasses import dataclass, field
-from typing import List, Optional
+from typing import List, Optional, Dict
 
 
 @dataclass
@@ -76,3 +76,74 @@ class InvalidPathError(Exception):
     Examples: path does not exist, not a directory, not mounted.
     """
     pass
+
+
+@dataclass
+class DriveInfo:
+    """
+    Represents a mounted drive with space and filesystem info.
+
+    Attributes:
+        device: Device identifier (e.g., '/dev/sda', 'C:\\', '/dev/disk1')
+        mountpoint: Mount path (e.g., '/Volumes/MyDrive', '/mnt/external')
+        fstype: Filesystem type (e.g., 'NTFS', 'HFS+', 'ext4', 'exFAT')
+        total_gb: Total capacity in GB
+        used_gb: Used space in GB
+        free_gb: Free space in GB
+        is_writable: Result of os.access(mountpoint, os.W_OK)
+    """
+    device: str
+    mountpoint: str
+    fstype: str
+    total_gb: float
+    used_gb: float
+    free_gb: float
+    is_writable: bool
+
+
+@dataclass
+class HealthCheckResult:
+    """
+    Complete health check result for one drive.
+
+    Attributes:
+        mountpoint: Drive being checked
+        total_gb: Total capacity in GB
+        used_gb: Used space in GB
+        free_gb: Free space in GB
+        fstype: Detected filesystem type
+        is_writable: Write permission check result
+        warnings: List of warning messages
+        errors: List of error messages
+        smart_data: SMART info if available, else None
+    """
+    mountpoint: str
+    total_gb: float
+    used_gb: float
+    free_gb: float
+    fstype: str
+    is_writable: bool
+    warnings: List[str] = field(default_factory=list)
+    errors: List[str] = field(default_factory=list)
+    smart_data: Optional[Dict] = None
+
+
+@dataclass
+class BenchmarkResult:
+    """
+    Result of sequential read speed benchmark on a drive.
+
+    Attributes:
+        mountpoint: Drive tested
+        speed_mbps: Measured speed in MB/s
+        duration_secs: Time elapsed in seconds
+        bytes_read: Total bytes read during test
+        success: True if benchmark completed without error
+        error: Error message if success=False, else None
+    """
+    mountpoint: str
+    speed_mbps: float
+    duration_secs: float
+    bytes_read: int
+    success: bool
+    error: Optional[str] = None
