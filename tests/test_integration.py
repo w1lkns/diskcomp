@@ -5,10 +5,13 @@ import tempfile
 import os
 import shutil
 from pathlib import Path
+from unittest.mock import patch, MagicMock
 
 from diskcomp.scanner import FileScanner
 from diskcomp.hasher import FileHasher
 from diskcomp.reporter import DuplicateClassifier, ReportWriter
+from diskcomp.cli import main
+from diskcomp.types import ScanResult, FileRecord, HealthCheckResult
 
 
 class TestIntegration(unittest.TestCase):
@@ -135,6 +138,261 @@ class TestIntegration(unittest.TestCase):
                 shutil.rmtree(keep_dir)
             if os.path.exists(other_dir):
                 shutil.rmtree(other_dir)
+
+
+class TestPhase3Integration(unittest.TestCase):
+    """Integration tests for Phase 3: Interactive Drive Picker + Health Checks."""
+
+    @patch('diskcomp.cli.input')
+    @patch('diskcomp.cli.ReportWriter')
+    @patch('diskcomp.cli.DuplicateClassifier')
+    @patch('diskcomp.cli.FileHasher')
+    @patch('diskcomp.cli.FileScanner')
+    @patch('diskcomp.cli.display_health_checks')
+    @patch('diskcomp.cli.check_drive_health')
+    @patch('diskcomp.cli.os.access')
+    @patch('diskcomp.cli.os.path.isdir')
+    @patch('diskcomp.cli.interactive_drive_picker')
+    @patch('diskcomp.cli.UIHandler')
+    def test_interactive_mode_end_to_end(
+            self, mock_ui_factory, mock_picker, mock_isdir, mock_access,
+            mock_health_check, mock_display_health, mock_scanner_class,
+            mock_hasher_class, mock_classifier_class, mock_reporter_class,
+            mock_input):
+        """Test full workflow: interactive picker → health checks → scan → report."""
+        # Setup UI mock
+        mock_ui = MagicMock()
+        mock_ui_factory.create.return_value = mock_ui
+
+        # Setup interactive picker
+        mock_picker.return_value = {'keep': '/mnt/keep', 'other': '/mnt/other'}
+
+        # Setup path validation
+        mock_isdir.return_value = True
+        mock_access.return_value = True
+
+        # Setup health checks
+        mock_display_health.return_value = True
+
+        # Setup scanner
+        keep_file = FileRecord(path='/mnt/keep/file.txt', rel_path='file.txt', size_bytes=1500)
+        other_file = FileRecord(path='/mnt/other/file.txt', rel_path='file.txt', size_bytes=1500)
+        keep_result = ScanResult(
+            drive_path='/mnt/keep',
+            file_count=1,
+            total_size_bytes=1500,
+            files=[keep_file]
+        )
+        other_result = ScanResult(
+            drive_path='/mnt/other',
+            file_count=1,
+            total_size_bytes=1500,
+            files=[other_file]
+        )
+
+        mock_scanner = MagicMock()
+        mock_scanner.scan.return_value = keep_result
+        mock_scanner_class.return_value = mock_scanner
+
+        # Setup hasher
+        keep_file_hashed = FileRecord(
+            path='/mnt/keep/file.txt',
+            rel_path='file.txt',
+            size_bytes=1500,
+            hash='abc123'
+        )
+        other_file_hashed = FileRecord(
+            path='/mnt/other/file.txt',
+            rel_path='file.txt',
+            size_bytes=1500,
+            hash='abc123'
+        )
+
+        mock_hasher = MagicMock()
+        mock_hasher.hash_files.return_value = [keep_file_hashed, other_file_hashed]
+        mock_hasher_class.return_value = mock_hasher
+
+        # Setup classifier
+        mock_classifier = MagicMock()
+        mock_classifier.classify.return_value = {
+            'duplicates': [{'keep_path': '/mnt/keep/file.txt', 'other_path': '/mnt/other/file.txt', 'size_mb': 0.001}],
+            'unique_in_keep': [],
+            'unique_in_other': [],
+            'summary': {
+                'duplicate_count': 1,
+                'duplicate_size_mb': 0.001,
+                'unique_in_keep_count': 0,
+                'unique_in_keep_size_mb': 0,
+                'unique_in_other_count': 0,
+                'unique_in_other_size_mb': 0
+            }
+        }
+        mock_classifier_class.return_value = mock_classifier
+
+        # Setup reporter
+        mock_reporter = MagicMock()
+        mock_reporter.output_path = '/tmp/diskcomp-report.csv'
+        mock_reporter_class.return_value = mock_reporter
+
+        # User confirms scan
+        mock_input.return_value = 'y'
+
+        # Call main with empty args (triggers interactive mode)
+        from diskcomp.cli import parse_args
+        args = parse_args([])
+        result = main(args)
+
+        # Verify success
+        self.assertEqual(result, 0)
+        # Verify interactive picker was called
+        mock_picker.assert_called_once()
+        # Verify health checks were run
+        mock_display_health.assert_called_once()
+
+    @patch('diskcomp.cli.input')
+    @patch('diskcomp.cli.ReportWriter')
+    @patch('diskcomp.cli.DuplicateClassifier')
+    @patch('diskcomp.cli.FileHasher')
+    @patch('diskcomp.cli.FileScanner')
+    @patch('diskcomp.cli.display_health_checks')
+    @patch('diskcomp.cli.os.access')
+    @patch('diskcomp.cli.os.path.isdir')
+    @patch('diskcomp.cli.UIHandler')
+    def test_non_interactive_mode_with_health(
+            self, mock_ui_factory, mock_isdir, mock_access,
+            mock_display_health, mock_scanner_class, mock_hasher_class,
+            mock_classifier_class, mock_reporter_class, mock_input):
+        """Test that health checks run even in non-interactive mode (--keep/--other)."""
+        # Setup UI mock
+        mock_ui = MagicMock()
+        mock_ui_factory.create.return_value = mock_ui
+
+        # Setup path validation
+        mock_isdir.return_value = True
+        mock_access.return_value = True
+
+        # Setup health checks
+        mock_display_health.return_value = True
+
+        # Setup scanner
+        keep_result = ScanResult(
+            drive_path='/mnt/keep',
+            file_count=0,
+            total_size_bytes=0,
+            files=[]
+        )
+        other_result = ScanResult(
+            drive_path='/mnt/other',
+            file_count=0,
+            total_size_bytes=0,
+            files=[]
+        )
+
+        mock_scanner = MagicMock()
+        mock_scanner.scan.return_value = keep_result
+        mock_scanner_class.return_value = mock_scanner
+
+        # Setup hasher
+        mock_hasher = MagicMock()
+        mock_hasher.hash_files.return_value = []
+        mock_hasher_class.return_value = mock_hasher
+
+        # Setup classifier
+        mock_classifier = MagicMock()
+        mock_classifier.classify.return_value = {
+            'duplicates': [],
+            'unique_in_keep': [],
+            'unique_in_other': [],
+            'summary': {
+                'duplicate_count': 0,
+                'duplicate_size_mb': 0,
+                'unique_in_keep_count': 0,
+                'unique_in_keep_size_mb': 0,
+                'unique_in_other_count': 0,
+                'unique_in_other_size_mb': 0
+            }
+        }
+        mock_classifier_class.return_value = mock_classifier
+
+        # Setup reporter
+        mock_reporter = MagicMock()
+        mock_reporter.output_path = '/tmp/diskcomp-report.csv'
+        mock_reporter_class.return_value = mock_reporter
+
+        # User confirms
+        mock_input.return_value = 'y'
+
+        # Call main with --keep and --other
+        from diskcomp.cli import parse_args
+        args = parse_args(['--keep', '/mnt/keep', '--other', '/mnt/other'])
+        result = main(args)
+
+        # Verify success
+        self.assertEqual(result, 0)
+        # Verify health checks still run (even with --keep/--other)
+        mock_display_health.assert_called_once()
+
+    @patch('diskcomp.cli.input')
+    @patch('diskcomp.cli.ReportWriter')
+    @patch('diskcomp.cli.DuplicateClassifier')
+    @patch('diskcomp.cli.FileHasher')
+    @patch('diskcomp.cli.FileScanner')
+    @patch('diskcomp.cli.display_health_checks')
+    @patch('diskcomp.cli.os.access')
+    @patch('diskcomp.cli.os.path.isdir')
+    @patch('diskcomp.cli.UIHandler')
+    def test_health_check_blocks_nonwritable_keep(
+            self, mock_ui_factory, mock_isdir, mock_access,
+            mock_display_health, mock_scanner_class, mock_hasher_class,
+            mock_classifier_class, mock_reporter_class, mock_input):
+        """Test that non-writable keep drive blocks scan."""
+        # Setup UI mock
+        mock_ui = MagicMock()
+        mock_ui_factory.create.return_value = mock_ui
+
+        # Setup path validation
+        mock_isdir.return_value = True
+        mock_access.return_value = True
+
+        # Health checks fail (keep not writable)
+        mock_display_health.return_value = False
+
+        # Call main
+        from diskcomp.cli import parse_args
+        args = parse_args(['--keep', '/mnt/keep', '--other', '/mnt/other'])
+        result = main(args)
+
+        # Verify failure
+        self.assertEqual(result, 1)
+        # Verify UI was closed
+        mock_ui.close.assert_called()
+        # Verify scanner was NOT called
+        mock_scanner_class.assert_not_called()
+
+    @patch('diskcomp.cli.input')
+    @patch('diskcomp.cli.UIHandler')
+    def test_user_cancels_after_health_checks(
+            self, mock_ui_factory, mock_input):
+        """Test graceful cancellation after health checks."""
+        # Setup UI mock
+        mock_ui = MagicMock()
+        mock_ui_factory.create.return_value = mock_ui
+
+        with patch('diskcomp.cli.os.path.isdir', return_value=True):
+            with patch('diskcomp.cli.os.access', return_value=True):
+                with patch('diskcomp.cli.display_health_checks', return_value=True):
+                    # User cancels (answers 'n' to scan confirmation)
+                    mock_input.return_value = 'n'
+
+                    # Call main
+                    from diskcomp.cli import parse_args
+                    args = parse_args(['--keep', '/mnt/keep', '--other', '/mnt/other'])
+                    result = main(args)
+
+                    # Verify graceful exit
+                    self.assertEqual(result, 0)
+                    # Verify UI was closed
+                    mock_ui.close.assert_called()
 
 
 if __name__ == "__main__":

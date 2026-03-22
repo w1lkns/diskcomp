@@ -305,18 +305,19 @@ class TestCLIUI(unittest.TestCase):
             mock_ui = MagicMock()
             mock_create.return_value = mock_ui
 
-            # Run CLI with test directories
-            args = [
-                '--keep', self.keep_dir,
-                '--other', self.other_dir,
-                '--dry-run'
-            ]
-            from diskcomp.cli import parse_args
-            parsed = parse_args(args)
-            result = main(parsed)
+            with patch('diskcomp.cli.input', return_value='y'):
+                # Run CLI with test directories
+                args = [
+                    '--keep', self.keep_dir,
+                    '--other', self.other_dir,
+                    '--dry-run'
+                ]
+                from diskcomp.cli import parse_args
+                parsed = parse_args(args)
+                result = main(parsed)
 
-            # Verify start_scan was called
-            self.assertEqual(mock_ui.start_scan.call_count, 2)
+                # Verify start_scan was called
+                self.assertEqual(mock_ui.start_scan.call_count, 2)
 
     def test_cli_ui_on_folder_done_called(self):
         """Verify main() calls ui.on_folder_done() during scan."""
@@ -326,18 +327,19 @@ class TestCLIUI(unittest.TestCase):
             mock_ui = MagicMock()
             mock_create.return_value = mock_ui
 
-            # Run CLI with test directories
-            args = [
-                '--keep', self.keep_dir,
-                '--other', self.other_dir,
-                '--dry-run'
-            ]
-            from diskcomp.cli import parse_args
-            parsed = parse_args(args)
-            result = main(parsed)
+            with patch('diskcomp.cli.input', return_value='y'):
+                # Run CLI with test directories
+                args = [
+                    '--keep', self.keep_dir,
+                    '--other', self.other_dir,
+                    '--dry-run'
+                ]
+                from diskcomp.cli import parse_args
+                parsed = parse_args(args)
+                result = main(parsed)
 
-            # Verify on_folder_done was called
-            self.assertGreater(mock_ui.on_folder_done.call_count, 0)
+                # Verify on_folder_done was called
+                self.assertGreater(mock_ui.on_folder_done.call_count, 0)
 
     def test_cli_ui_start_hash_called(self):
         """Verify main() calls ui.start_hash() before hashing."""
@@ -347,17 +349,18 @@ class TestCLIUI(unittest.TestCase):
             mock_ui = MagicMock()
             mock_create.return_value = mock_ui
 
-            # Run CLI without dry-run to trigger hashing
-            args = [
-                '--keep', self.keep_dir,
-                '--other', self.other_dir
-            ]
-            from diskcomp.cli import parse_args
-            parsed = parse_args(args)
-            result = main(parsed)
+            with patch('diskcomp.cli.input', return_value='y'):
+                # Run CLI without dry-run to trigger hashing
+                args = [
+                    '--keep', self.keep_dir,
+                    '--other', self.other_dir
+                ]
+                from diskcomp.cli import parse_args
+                parsed = parse_args(args)
+                result = main(parsed)
 
-            # Verify start_hash was called
-            self.assertGreater(mock_ui.start_hash.call_count, 0)
+                # Verify start_hash was called
+                self.assertGreater(mock_ui.start_hash.call_count, 0)
 
     def test_cli_ui_on_file_hashed_called(self):
         """Verify main() calls ui.on_file_hashed() during hashing."""
@@ -367,17 +370,18 @@ class TestCLIUI(unittest.TestCase):
             mock_ui = MagicMock()
             mock_create.return_value = mock_ui
 
-            # Run CLI without dry-run to trigger hashing
-            args = [
-                '--keep', self.keep_dir,
-                '--other', self.other_dir
-            ]
-            from diskcomp.cli import parse_args
-            parsed = parse_args(args)
-            result = main(parsed)
+            with patch('diskcomp.cli.input', return_value='y'):
+                # Run CLI without dry-run to trigger hashing
+                args = [
+                    '--keep', self.keep_dir,
+                    '--other', self.other_dir
+                ]
+                from diskcomp.cli import parse_args
+                parsed = parse_args(args)
+                result = main(parsed)
 
-            # Verify on_file_hashed was called
-            self.assertGreater(mock_ui.on_file_hashed.call_count, 0)
+                # Verify on_file_hashed was called
+                self.assertGreater(mock_ui.on_file_hashed.call_count, 0)
 
     def test_cli_ui_show_summary_called(self):
         """Verify main() calls ui.show_summary() with correct stats."""
@@ -387,27 +391,28 @@ class TestCLIUI(unittest.TestCase):
             mock_ui = MagicMock()
             mock_create.return_value = mock_ui
 
-            # Run CLI without dry-run
-            args = [
-                '--keep', self.keep_dir,
-                '--other', self.other_dir
-            ]
-            from diskcomp.cli import parse_args
-            parsed = parse_args(args)
-            result = main(parsed)
+            with patch('diskcomp.cli.input', return_value='y'):
+                # Run CLI without dry-run
+                args = [
+                    '--keep', self.keep_dir,
+                    '--other', self.other_dir
+                ]
+                from diskcomp.cli import parse_args
+                parsed = parse_args(args)
+                result = main(parsed)
 
-            # Verify show_summary was called
-            mock_ui.show_summary.assert_called_once()
+                # Verify show_summary was called
+                mock_ui.show_summary.assert_called_once()
 
-            # Verify arguments
-            call_args = mock_ui.show_summary.call_args
-            self.assertIn('duplicates_mb', call_args.kwargs)
-            self.assertIn('duplicates_count', call_args.kwargs)
-            self.assertIn('unique_keep_mb', call_args.kwargs)
-            self.assertIn('unique_keep_count', call_args.kwargs)
-            self.assertIn('unique_other_mb', call_args.kwargs)
-            self.assertIn('unique_other_count', call_args.kwargs)
-            self.assertIn('report_path', call_args.kwargs)
+                # Verify arguments
+                call_args = mock_ui.show_summary.call_args
+                self.assertIn('duplicates_mb', call_args.kwargs)
+                self.assertIn('duplicates_count', call_args.kwargs)
+                self.assertIn('unique_keep_mb', call_args.kwargs)
+                self.assertIn('unique_keep_count', call_args.kwargs)
+                self.assertIn('unique_other_mb', call_args.kwargs)
+                self.assertIn('unique_other_count', call_args.kwargs)
+                self.assertIn('report_path', call_args.kwargs)
 
     def test_cli_ui_close_called(self):
         """Verify main() calls ui.close() at end."""
@@ -417,18 +422,19 @@ class TestCLIUI(unittest.TestCase):
             mock_ui = MagicMock()
             mock_create.return_value = mock_ui
 
-            # Run CLI without dry-run
-            args = [
-                '--keep', self.keep_dir,
-                '--other', self.other_dir,
-                '--dry-run'
-            ]
-            from diskcomp.cli import parse_args
-            parsed = parse_args(args)
-            result = main(parsed)
+            with patch('diskcomp.cli.input', return_value='y'):
+                # Run CLI without dry-run
+                args = [
+                    '--keep', self.keep_dir,
+                    '--other', self.other_dir,
+                    '--dry-run'
+                ]
+                from diskcomp.cli import parse_args
+                parsed = parse_args(args)
+                result = main(parsed)
 
-            # Verify close was called
-            mock_ui.close.assert_called()
+                # Verify close was called
+                mock_ui.close.assert_called()
 
 
 if __name__ == '__main__':
