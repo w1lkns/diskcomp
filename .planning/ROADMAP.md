@@ -5,7 +5,7 @@
 
 ## Phases
 
-- [ ] **Phase 1: Core Engine + Report** - Scanner, SHA256 hashing, CSV/JSON output, CLI
+- [x] **Phase 1: Core Engine + Report** - Scanner, SHA256 hashing, CSV/JSON output, CLI ✓ COMPLETE
 - [ ] **Phase 2: Terminal UI** - Rich progress bars, per-folder ticks, ANSI fallback
 - [ ] **Phase 3: Drive Health + Setup** - Drive picker, health checks, SMART, filesystem detection
 - [ ] **Phase 4: Guided Deletion** - Mode A/B deletion, undo log, read-only detection
@@ -28,7 +28,7 @@
 Plans:
 - [x] 01-01-PLAN.md — Types + Scanner (cross-platform filesystem walker with noise filtering) ✓ COMPLETE
 - [x] 01-02-PLAN.md — Hasher + Reporter (SHA256 hashing and CSV/JSON output) ✓ COMPLETE
-- [ ] 01-03-PLAN.md — CLI + Tests (argparse interface and comprehensive test suite)
+- [x] 01-03-PLAN.md — CLI + Tests (argparse interface and comprehensive test suite) ✓ COMPLETE
 
 ### Phase 2: Terminal UI
 **Goal**: Replace raw prints with a beautiful, cross-platform terminal experience. Rich when available, ANSI fallback when not.
@@ -80,7 +80,7 @@ Plans:
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Core Engine + Report | 2/3 | In Progress | 2026-03-22 (01-01, 01-02) |
+| 1. Core Engine + Report | 3/3 | ✓ Complete | 2026-03-22 (01-01, 01-02, 01-03) |
 | 2. Terminal UI | 0/TBD | Not started | - |
 | 3. Drive Health + Setup | 0/TBD | Not started | - |
 | 4. Guided Deletion | 0/TBD | Not started | - |
