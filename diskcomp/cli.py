@@ -15,6 +15,8 @@ from diskcomp.hasher import FileHasher
 from diskcomp.reporter import DuplicateClassifier, ReportWriter
 from diskcomp.ui import UIHandler
 from diskcomp.types import ScanError, InvalidPathError, FileNotReadableError
+from diskcomp.drive_picker import interactive_drive_picker
+from diskcomp.health import check_drive_health
 
 
 def parse_args(args=None):
@@ -43,15 +45,15 @@ Examples:
     parser.add_argument(
         '--keep',
         type=str,
-        required=True,
-        help='Path to the "keep" drive (files to retain)'
+        required=False,
+        help='Path to the "keep" drive (files to retain). If omitted, uses interactive mode.'
     )
 
     parser.add_argument(
         '--other',
         type=str,
-        required=True,
-        help='Path to the "other" drive (compare against)'
+        required=False,
+        help='Path to the "other" drive (compare against). If omitted, uses interactive mode.'
     )
 
     parser.add_argument(
@@ -86,11 +88,66 @@ Examples:
     return parser.parse_args(args)
 
 
+def display_health_checks(keep_path, other_path, ui):
+    """
+    Runs health checks on both drives and displays results to user.
+
+    Args:
+        keep_path: Path to keep drive
+        other_path: Path to other drive
+        ui: UIHandler instance for output
+
+    Returns:
+        True if checks pass (warnings are OK), False if critical error occurs
+    """
+    print("\n=== Drive Health Checks ===\n", file=sys.stderr)
+
+    # Check keep drive
+    print(f"Checking '{keep_path}'...", file=sys.stderr)
+    keep_health = check_drive_health(keep_path)
+    _display_health_result("Keep", keep_health)
+
+    # Check other drive
+    print(f"Checking '{other_path}'...", file=sys.stderr)
+    other_health = check_drive_health(other_path)
+    _display_health_result("Other", other_health)
+
+    # If both drives are readable, proceed (warnings don't block)
+    if keep_health.is_writable and other_health.is_writable:
+        print("\nBoth drives readable. Proceeding with scan.", file=sys.stderr)
+        return True
+
+    # If keep drive is not writable, block (can't write scan results)
+    if not keep_health.is_writable:
+        print("Error: Keep drive is not writable. Cannot proceed.", file=sys.stderr)
+        return False
+
+    # Other drive read-only is OK (we only read from it)
+    print("\nOther drive is read-only, but scan can proceed (read-only is OK).", file=sys.stderr)
+    return True
+
+
+def _display_health_result(drive_name, health):
+    """Helper to print health check results."""
+    print(f"\n{drive_name} Drive:", file=sys.stderr)
+    print(f"  Space: {health.used_gb}GB used / {health.total_gb}GB total ({health.free_gb}GB free)", file=sys.stderr)
+    print(f"  Filesystem: {health.fstype}", file=sys.stderr)
+    print(f"  Writable: {'Yes' if health.is_writable else 'NO (READ-ONLY)'}", file=sys.stderr)
+
+    if health.warnings:
+        for warning in health.warnings:
+            print(f"  WARNING: {warning}", file=sys.stderr)
+
+    if health.errors:
+        for error in health.errors:
+            print(f"  ERROR: {error}", file=sys.stderr)
+
+
 def main(args=None):
     """
     Main orchestration function.
 
-    Coordinates the full pipeline: scan both drives → hash → classify → report.
+    Coordinates the full pipeline: validate paths → health checks → scan → hash → classify → report.
 
     Args:
         args: Parsed arguments (for testing). If None, parse from command line.
@@ -106,14 +163,45 @@ def main(args=None):
     ui = UIHandler.create()
 
     try:
+        # If no paths provided, launch interactive drive picker
+        if not args.keep or not args.other:
+            print("\n=== Interactive Drive Setup ===\n", file=sys.stderr)
+            print("Available mounted drives:\n", file=sys.stderr)
+
+            selected = interactive_drive_picker()
+            if selected is None:
+                print("Error: Could not complete drive selection.", file=sys.stderr)
+                ui.close()
+                return 1
+
+            args.keep = selected['keep']
+            args.other = selected['other']
+
+            print(f"\nSelected: Keep={args.keep}, Other={args.other}\n", file=sys.stderr)
+
         # Validate paths exist and are readable
         for path_name, path in [('--keep', args.keep), ('--other', args.other)]:
             if not os.path.isdir(path):
                 print(f"Error: {path_name} path is not a readable directory: {path}", file=sys.stderr)
+                ui.close()
                 return 1
             if not os.access(path, os.R_OK):
                 print(f"Error: {path_name} path is not readable: {path}", file=sys.stderr)
+                ui.close()
                 return 1
+
+        # Run health checks on both drives
+        if not display_health_checks(args.keep, args.other, ui):
+            ui.close()
+            return 1
+
+        # Ask user to confirm before scan starts
+        print("\n=== Ready to Scan ===\n", file=sys.stderr)
+        confirm = input("Start scan? (y/n): ").strip().lower()
+        if confirm not in ['y', 'yes']:
+            print("Scan cancelled.", file=sys.stderr)
+            ui.close()
+            return 0
 
         # Scan keep drive with UI callback
         ui.start_scan(args.keep)
