@@ -213,17 +213,18 @@ def _check_deletion_readiness(candidates: list) -> tuple:
     for candidate in candidates:
         other_path = candidate['other_path']
         try:
-            # Check if parent drive is writable
-            # Extract drive root from path (first part of path that's mounted)
-            drive_root = other_path.split(os.sep)[0] or os.sep
-            if sys.platform == 'win32':
-                # Windows: drive letter is first char + colon
-                drive_root = other_path[0] + ':'
+            # Check if the file's parent directory is writable
+            parent_dir = os.path.dirname(os.path.abspath(other_path)) or os.sep
 
-            health = check_drive_health(drive_root)
-            if health.is_writable:
+            if os.access(parent_dir, os.W_OK):
                 deletable.append(candidate)
             else:
+                # Use health check for a richer error message (fstype, fix instructions)
+                if sys.platform == 'win32':
+                    drive_root = os.path.abspath(other_path)[:3]  # e.g. "C:\"
+                else:
+                    drive_root = parent_dir
+                health = check_drive_health(drive_root)
                 fix = get_fix_instructions(health.fstype, sys.platform, drive_root)
                 msg = f"{other_path}: Drive is read-only."
                 if fix:
