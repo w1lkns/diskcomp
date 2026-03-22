@@ -9,7 +9,7 @@ for all platforms (macOS, Windows, Linux).
 import os
 import sys
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Callable
 
 from diskcomp.types import FileRecord, ScanResult, ScanError, InvalidPathError
 
@@ -142,6 +142,7 @@ class FileScanner:
         self,
         dry_run: bool = False,
         limit: Optional[int] = None,
+        on_folder_done: Optional[Callable[[str, int], None]] = None,
     ) -> ScanResult:
         """
         Walk the filesystem recursively and collect file metadata.
@@ -153,6 +154,7 @@ class FileScanner:
         Args:
             dry_run: If True, count files without opening them (fast sanity check)
             limit: Maximum number of files to collect (None = unlimited)
+            on_folder_done: Optional callback(folder_path, file_count) called when a folder's files are collected
 
         Returns:
             ScanResult with collected files, file_count, total_size, errors, noise_count
@@ -165,6 +167,9 @@ class FileScanner:
                 # Filter out noise directories in-place to prevent os.walk from descending
                 # into them
                 dirs[:] = [d for d in dirs if not self._is_noise(d)]
+
+                # Track files collected in this folder
+                folder_files = 0
 
                 # Process each file in this directory
                 for filename in filenames:
@@ -207,6 +212,7 @@ class FileScanner:
                         result.file_count += 1
                         result.total_size_bytes += file_size
                         files_collected += 1
+                        folder_files += 1
 
                     except (PermissionError, OSError) as e:
                         # Log error but continue scanning
@@ -214,6 +220,10 @@ class FileScanner:
                             'path': abs_path,
                             'reason': str(e),
                         })
+
+                # Invoke callback after processing all files in this folder
+                if on_folder_done and folder_files > 0:
+                    on_folder_done(root, folder_files)
 
                 # Stop outer loop if we've reached the limit
                 if limit is not None and files_collected >= limit:
