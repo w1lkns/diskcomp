@@ -4,13 +4,15 @@ import unittest
 import tempfile
 import os
 import shutil
+import json
+import csv
 from pathlib import Path
 from unittest.mock import patch, MagicMock
 
 from diskcomp.scanner import FileScanner
 from diskcomp.hasher import FileHasher
 from diskcomp.reporter import DuplicateClassifier, ReportWriter
-from diskcomp.cli import main
+from diskcomp.cli import main, parse_args
 from diskcomp.types import ScanResult, FileRecord, HealthCheckResult
 
 
@@ -393,6 +395,327 @@ class TestPhase3Integration(unittest.TestCase):
                     self.assertEqual(result, 0)
                     # Verify UI was closed
                     mock_ui.close.assert_called()
+
+
+class TestDeletionCLI(unittest.TestCase):
+    """Integration tests for deletion CLI workflow."""
+
+    def test_delete_from_missing_report(self):
+        """--delete-from with missing report file returns error."""
+        args = parse_args(['--delete-from', '/nonexistent/report.csv'])
+        result = main(args)
+        self.assertEqual(result, 1)
+
+    def test_delete_from_empty_report(self):
+        """--delete-from with no candidates exits cleanly."""
+        # Create temporary report with no DELETE_FROM_OTHER rows
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.csv', delete=False) as f:
+            writer = csv.DictWriter(
+                f,
+                fieldnames=['action', 'keep_path', 'other_path', 'size_mb', 'hash']
+            )
+            writer.writeheader()
+            writer.writerow({
+                'action': 'UNIQUE_IN_KEEP',
+                'keep_path': '/path/a',
+                'other_path': None,
+                'size_mb': 1.0,
+                'hash': 'abc123'
+            })
+            temp_report = f.name
+
+        try:
+            args = parse_args(['--delete-from', temp_report])
+            result = main(args)
+            self.assertEqual(result, 0)
+        finally:
+            os.unlink(temp_report)
+
+    @patch('diskcomp.cli.input', return_value='skip')
+    def test_delete_from_skip_mode(self, mock_input):
+        """--delete-from with skip selection exits without deletion."""
+        # Create temp directories with actual files
+        temp_dir = tempfile.mkdtemp()
+
+        try:
+            # Create an "other" file to reference in the report
+            other_file = os.path.join(temp_dir, 'file.txt')
+            with open(other_file, 'w') as f:
+                f.write("test content")
+
+            # Create temporary report with DELETE_FROM_OTHER row
+            report_file = os.path.join(temp_dir, 'report.csv')
+            with open(report_file, 'w') as f:
+                writer = csv.DictWriter(
+                    f,
+                    fieldnames=['action', 'keep_path', 'other_path', 'size_mb', 'hash']
+                )
+                writer.writeheader()
+                writer.writerow({
+                    'action': 'DELETE_FROM_OTHER',
+                    'keep_path': '/path/keep/file.txt',
+                    'other_path': other_file,
+                    'size_mb': 1.0,
+                    'hash': 'abc123def456'
+                })
+
+            args = parse_args(['--delete-from', report_file])
+            result = main(args)
+            self.assertEqual(result, 0)
+        finally:
+            shutil.rmtree(temp_dir)
+
+    def test_undo_missing_log(self):
+        """--undo with missing log file returns error."""
+        args = parse_args(['--undo', '/nonexistent/undo.json'])
+        result = main(args)
+        self.assertEqual(result, 1)
+
+    def test_undo_valid_log(self):
+        """--undo with valid log displays audit view."""
+        # Create temporary undo log
+        undo_data = [
+            {
+                'path': '/path/to/deleted/file.txt',
+                'size_mb': 1.5,
+                'hash': 'abc123def456abcdef123456abcdef12',
+                'deleted_at': '2026-03-22T10:30:00'
+            }
+        ]
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+            json.dump(undo_data, f)
+            temp_undo = f.name
+
+        try:
+            args = parse_args(['--undo', temp_undo])
+            result = main(args)
+            self.assertEqual(result, 0)
+        finally:
+            os.unlink(temp_undo)
+
+    def test_undo_empty_log(self):
+        """--undo with empty log returns success."""
+        # Create temporary empty undo log
+        undo_data = []
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+            json.dump(undo_data, f)
+            temp_undo = f.name
+
+        try:
+            args = parse_args(['--undo', temp_undo])
+            result = main(args)
+            self.assertEqual(result, 0)
+        finally:
+            os.unlink(temp_undo)
+
+    def test_undo_invalid_json(self):
+        """--undo with invalid JSON returns error."""
+        # Create temporary invalid JSON file
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+            f.write("{ invalid json")
+            temp_undo = f.name
+
+        try:
+            args = parse_args(['--undo', temp_undo])
+            result = main(args)
+            self.assertEqual(result, 1)
+        finally:
+            os.unlink(temp_undo)
+
+    @patch('diskcomp.cli.input', return_value='interactive')
+    @patch('diskcomp.deletion.DeletionOrchestrator')
+    def test_delete_from_interactive_mode(self, mock_orchestrator_class, mock_input):
+        """--delete-from with interactive mode selection."""
+        from diskcomp.types import DeletionResult
+
+        temp_dir = tempfile.mkdtemp()
+
+        try:
+            # Create an "other" file to reference in the report
+            other_file = os.path.join(temp_dir, 'file.txt')
+            with open(other_file, 'w') as f:
+                f.write("test content")
+
+            # Create temporary report
+            report_file = os.path.join(temp_dir, 'report.csv')
+            with open(report_file, 'w') as f:
+                writer = csv.DictWriter(
+                    f,
+                    fieldnames=['action', 'keep_path', 'other_path', 'size_mb', 'hash']
+                )
+                writer.writeheader()
+                writer.writerow({
+                    'action': 'DELETE_FROM_OTHER',
+                    'keep_path': '/path/keep/file.txt',
+                    'other_path': other_file,
+                    'size_mb': 1.0,
+                    'hash': 'abc123'
+                })
+
+            # Mock orchestrator
+            mock_orchestrator = MagicMock()
+            mock_orchestrator.interactive_mode.return_value = DeletionResult(
+                mode='interactive',
+                files_deleted=0,
+                space_freed_mb=0.0,
+                files_skipped=1,
+                aborted=False,
+                undo_log_path=None,
+                errors=[]
+            )
+            mock_orchestrator_class.return_value = mock_orchestrator
+
+            args = parse_args(['--delete-from', report_file])
+            result = main(args)
+            self.assertEqual(result, 0)
+            # Verify orchestrator was created
+            mock_orchestrator_class.assert_called_once()
+        finally:
+            shutil.rmtree(temp_dir)
+
+    @patch('diskcomp.cli.input', return_value='batch')
+    @patch('diskcomp.deletion.DeletionOrchestrator')
+    def test_delete_from_batch_mode(self, mock_orchestrator_class, mock_input):
+        """--delete-from with batch mode selection."""
+        from diskcomp.types import DeletionResult
+
+        temp_dir = tempfile.mkdtemp()
+
+        try:
+            # Create an "other" file to reference in the report
+            other_file = os.path.join(temp_dir, 'file.txt')
+            with open(other_file, 'w') as f:
+                f.write("test content")
+
+            # Create temporary report
+            report_file = os.path.join(temp_dir, 'report.csv')
+            with open(report_file, 'w') as f:
+                writer = csv.DictWriter(
+                    f,
+                    fieldnames=['action', 'keep_path', 'other_path', 'size_mb', 'hash']
+                )
+                writer.writeheader()
+                writer.writerow({
+                    'action': 'DELETE_FROM_OTHER',
+                    'keep_path': '/path/keep/file.txt',
+                    'other_path': other_file,
+                    'size_mb': 1.0,
+                    'hash': 'abc123'
+                })
+
+            # Mock orchestrator
+            mock_orchestrator = MagicMock()
+            mock_orchestrator.batch_mode.return_value = DeletionResult(
+                mode='batch',
+                files_deleted=1,
+                space_freed_mb=1.0,
+                files_skipped=0,
+                aborted=False,
+                undo_log_path=os.path.join(temp_dir, 'diskcomp-undo-test.json'),
+                errors=[]
+            )
+            mock_orchestrator_class.return_value = mock_orchestrator
+
+            args = parse_args(['--delete-from', report_file])
+            result = main(args)
+            self.assertEqual(result, 0)
+            # Verify batch_mode was called
+            mock_orchestrator.batch_mode.assert_called_once()
+        finally:
+            shutil.rmtree(temp_dir)
+
+    @patch('diskcomp.cli.input', return_value='')
+    def test_delete_from_empty_mode_choice(self, mock_input):
+        """--delete-from with empty mode choice (enter) exits without deletion."""
+        temp_dir = tempfile.mkdtemp()
+
+        try:
+            # Create an "other" file to reference in the report
+            other_file = os.path.join(temp_dir, 'file.txt')
+            with open(other_file, 'w') as f:
+                f.write("test content")
+
+            # Create temporary report
+            report_file = os.path.join(temp_dir, 'report.csv')
+            with open(report_file, 'w') as f:
+                writer = csv.DictWriter(
+                    f,
+                    fieldnames=['action', 'keep_path', 'other_path', 'size_mb', 'hash']
+                )
+                writer.writeheader()
+                writer.writerow({
+                    'action': 'DELETE_FROM_OTHER',
+                    'keep_path': '/path/keep/file.txt',
+                    'other_path': other_file,
+                    'size_mb': 1.0,
+                    'hash': 'abc123'
+                })
+
+            args = parse_args(['--delete-from', report_file])
+            result = main(args)
+            self.assertEqual(result, 0)
+        finally:
+            shutil.rmtree(temp_dir)
+
+    @patch('diskcomp.cli.input', return_value='batch')
+    @patch('diskcomp.deletion.DeletionOrchestrator')
+    def test_delete_from_aborted_shows_message(self, mock_orchestrator_class, mock_input):
+        """--delete-from shows abort message when aborted during batch."""
+        from diskcomp.types import DeletionResult
+
+        temp_dir = tempfile.mkdtemp()
+
+        try:
+            # Create "other" files
+            other_file1 = os.path.join(temp_dir, 'file1.txt')
+            with open(other_file1, 'w') as f:
+                f.write("test content 1")
+
+            other_file2 = os.path.join(temp_dir, 'file2.txt')
+            with open(other_file2, 'w') as f:
+                f.write("test content 2")
+
+            # Create temporary report
+            report_file = os.path.join(temp_dir, 'report.csv')
+            with open(report_file, 'w') as f:
+                writer = csv.DictWriter(
+                    f,
+                    fieldnames=['action', 'keep_path', 'other_path', 'size_mb', 'hash']
+                )
+                writer.writeheader()
+                writer.writerow({
+                    'action': 'DELETE_FROM_OTHER',
+                    'keep_path': '/path/keep/file1.txt',
+                    'other_path': other_file1,
+                    'size_mb': 1.0,
+                    'hash': 'abc123'
+                })
+                writer.writerow({
+                    'action': 'DELETE_FROM_OTHER',
+                    'keep_path': '/path/keep/file2.txt',
+                    'other_path': other_file2,
+                    'size_mb': 1.5,
+                    'hash': 'def456'
+                })
+
+            # Mock orchestrator with aborted result
+            mock_orchestrator = MagicMock()
+            mock_orchestrator.batch_mode.return_value = DeletionResult(
+                mode='batch',
+                files_deleted=1,
+                space_freed_mb=1.0,
+                files_skipped=1,
+                aborted=True,
+                undo_log_path=os.path.join(temp_dir, 'diskcomp-undo-test.json'),
+                errors=[]
+            )
+            mock_orchestrator_class.return_value = mock_orchestrator
+
+            args = parse_args(['--delete-from', report_file])
+            result = main(args)
+            self.assertEqual(result, 0)
+        finally:
+            shutil.rmtree(temp_dir)
 
 
 if __name__ == "__main__":
