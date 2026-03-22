@@ -319,6 +319,102 @@ class ReportWriter:
         self._write_atomic(target_path, writer_func)
 
 
+class ReportReader:
+    """
+    Reads CSV or JSON reports and extracts deletion candidates.
+
+    Reports from Phase 1–3 contain rows with action column (DELETE_FROM_OTHER,
+    UNIQUE_IN_KEEP, UNIQUE_IN_OTHER). This reader filters for DELETE_FROM_OTHER
+    entries only, which are candidates for deletion in Mode A and Mode B workflows.
+
+    Static factory methods handle both CSV and JSON formats with auto-detection.
+    """
+
+    @staticmethod
+    def load_csv(file_path: str) -> list:
+        """
+        Load CSV report and extract deletion candidates.
+
+        Args:
+            file_path: Path to report CSV file
+
+        Returns:
+            List of dicts with keys: action, keep_path, other_path, size_mb, hash
+
+        Raises:
+            FileNotFoundError: If report file doesn't exist
+            ValueError: If CSV format is invalid
+        """
+        if not os.path.isfile(file_path):
+            raise FileNotFoundError(f"Report file not found: {file_path}")
+
+        candidates = []
+        try:
+            with open(file_path, 'r') as f:
+                reader = csv.DictReader(f)
+                for row in reader:
+                    if row and row.get('action') == 'DELETE_FROM_OTHER':
+                        candidates.append(row)
+        except csv.Error as e:
+            raise ValueError(f"CSV format error: {e}") from e
+        except Exception as e:
+            raise ValueError(f"Failed to read CSV report: {e}") from e
+
+        return candidates
+
+    @staticmethod
+    def load_json(file_path: str) -> list:
+        """
+        Load JSON report and extract deletion candidates.
+
+        Args:
+            file_path: Path to report JSON file
+
+        Returns:
+            List of dicts with keys: action, keep_path, other_path, size_mb, hash
+
+        Raises:
+            FileNotFoundError: If report file doesn't exist
+            ValueError: If JSON format is invalid
+        """
+        if not os.path.isfile(file_path):
+            raise FileNotFoundError(f"Report file not found: {file_path}")
+
+        try:
+            with open(file_path, 'r') as f:
+                data = json.load(f)
+        except json.JSONDecodeError as e:
+            raise ValueError(f"JSON format error: {e}") from e
+        except Exception as e:
+            raise ValueError(f"Failed to read JSON report: {e}") from e
+
+        # JSON format has 'duplicates' key with list of items
+        duplicates = data.get('duplicates', [])
+        candidates = [item for item in duplicates if item.get('action') == 'DELETE_FROM_OTHER']
+        return candidates
+
+    @staticmethod
+    def load(file_path: str) -> list:
+        """
+        Auto-detect format and load report.
+
+        Args:
+            file_path: Path to report (CSV or JSON)
+
+        Returns:
+            List of deletion candidate dicts
+
+        Raises:
+            FileNotFoundError: If file doesn't exist
+            ValueError: If format is invalid
+        """
+        if file_path.endswith('.json'):
+            return ReportReader.load_json(file_path)
+        else:
+            # Default to CSV
+            return ReportReader.load_csv(file_path)
+
+
 # Example usage (commented out):
 # classifier = DuplicateClassifier(keep_result, other_result)
 # classification = classifier.classify()
