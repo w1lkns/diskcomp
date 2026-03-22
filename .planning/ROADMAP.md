@@ -3,112 +3,89 @@
 **Created:** 2026-03-22
 **Milestone:** v1.0 — Shareable, safe, cross-platform drive comparison tool
 
----
+## Phases
 
-## Phase 1 — Core Engine + Report
+- [ ] **Phase 1: Core Engine + Report** - Scanner, SHA256 hashing, CSV/JSON output, CLI
+- [ ] **Phase 2: Terminal UI** - Rich progress bars, per-folder ticks, ANSI fallback
+- [ ] **Phase 3: Drive Health + Setup** - Drive picker, health checks, SMART, filesystem detection
+- [ ] **Phase 4: Guided Deletion** - Mode A/B deletion, undo log, read-only detection
+- [ ] **Phase 5: Packaging + Distribution** - Single .py, pip, GitHub Actions CI
 
-**Goal:** A working scanner that hashes two drives and outputs a reliable CSV report. The foundation everything else builds on.
+## Phase Details
 
-**Requirements covered:** CORE-01 through CORE-06, RPT-01 through RPT-05
+### Phase 1: Core Engine + Report
+**Goal**: A working scanner that hashes two drives and outputs a reliable CSV report. The foundation everything else builds on. `python3 -m diskcomp --keep /Volumes/A --other /Volumes/B` produces a correct CSV report on macOS, Linux, and Windows.
+**Depends on**: Nothing (first phase)
+**Requirements**: [CORE-01, CORE-02, CORE-03, CORE-04, CORE-05, CORE-06, RPT-01, RPT-02, RPT-03, RPT-04, RPT-05]
+**Success Criteria** (what must be TRUE):
+  1. Running `python3 -m diskcomp --keep /path/A --other /path/B` exits 0 and writes a CSV report
+  2. SHA256 hashes correctly classify files as DUPLICATE or UNIQUE regardless of filename/path
+  3. Scanner skips OS noise files (.DS_Store, Thumbs.db, $RECYCLE.BIN) on all platforms
+  4. `--dry-run` flag walks and counts files without hashing
+  5. CSV report is written atomically and includes action, keep_path, other_path, size_mb, hash columns
+**Plans**: 3 plans
 
-**Deliverables:**
-- `diskcomp/scanner.py` — cross-platform drive walker, noise filter, file collector
-- `diskcomp/hasher.py` — SHA256 engine with chunked reading, error handling
-- `diskcomp/reporter.py` — CSV and JSON output, atomic write, timestamped filename
-- `diskcomp/cli.py` — argparse CLI with `--keep`, `--other`, `--dry-run`, `--limit`, `--output`, `--format`
-- `diskcomp/__main__.py` — entry point
-- Basic `print()`-based progress (no UI library yet)
-- Test: both drives produce correct duplicate/unique classification
+Plans:
+- [ ] 01-01-PLAN.md — Types + Scanner (cross-platform filesystem walker with noise filtering)
+- [ ] 01-02-PLAN.md — Hasher + Reporter (SHA256 hashing and CSV/JSON output)
+- [ ] 01-03-PLAN.md — CLI + Tests (argparse interface and comprehensive test suite)
 
-**Done when:** `python3 -m diskcomp --keep /Volumes/A --other /Volumes/B` produces a correct CSV report on macOS, Linux, and Windows.
+### Phase 2: Terminal UI
+**Goal**: Replace raw prints with a beautiful, cross-platform terminal experience. Rich when available, ANSI fallback when not.
+**Depends on**: Phase 1
+**Requirements**: [UI-01, UI-02, UI-03, UI-04, UI-05]
+**Success Criteria** (what must be TRUE):
+  1. Per-folder progress shows cyan arrow while scanning, green tick + file count on completion
+  2. Live hash progress bar shows percentage, files done/total, MB/s speed, and ETA
+  3. Tool works with `rich` when installed and falls back to plain ANSI when not
+  4. Final summary banner shows duplicates count + MB, unique count + MB, report path
+**Plans**: TBD
 
----
+### Phase 3: Drive Health + Setup
+**Goal**: Before touching a single file, the user knows exactly what they're working with. No surprises mid-scan.
+**Depends on**: Phase 2
+**Requirements**: [HLTH-01, HLTH-02, HLTH-03, HLTH-04, HLTH-05, SETUP-01, SETUP-02, SETUP-03, SETUP-04]
+**Success Criteria** (what must be TRUE):
+  1. Space summary (used/free/total) shown per drive before scan starts
+  2. Filesystem type detected and cross-platform warnings shown (e.g., NTFS read-only on macOS)
+  3. Interactive mode lists all mounted drives with size/filesystem for user to pick keep/other
+  4. Read speed benchmark runs 128MB test and flags slow/failing drives
+  5. Running `diskcomp` with no args launches interactive setup and proceeds only after user confirmation
+**Plans**: TBD
 
-## Phase 2 — Terminal UI
+### Phase 4: Guided Deletion
+**Goal**: Turn the report into action — safely. Two modes, undo log, zero surprises.
+**Depends on**: Phase 3
+**Requirements**: [DEL-01, DEL-02, DEL-03, DEL-04, DEL-05, DEL-06, DEL-07, DEL-08]
+**Success Criteria** (what must be TRUE):
+  1. Deletion only starts from an existing report file, never from scan results directly
+  2. Mode A (interactive): user confirms y/n/skip/abort per file
+  3. Mode B (workflow): dry-run preview → summary → "type DELETE to confirm" → execute
+  4. Undo log written before any file is deleted; `--undo` flag restores deleted files
+  5. Read-only filesystem detection warns and skips deletion on protected drives
+**Plans**: TBD
 
-**Goal:** Replace raw prints with a beautiful, cross-platform terminal experience. Rich when available, ANSI fallback when not.
+### Phase 5: Packaging + Distribution
+**Goal**: Anyone can install and run diskcomp in under 60 seconds.
+**Depends on**: Phase 4
+**Requirements**: [DIST-01, DIST-02, DIST-03, DIST-04]
+**Success Criteria** (what must be TRUE):
+  1. `pip install diskcomp` installs a `diskcomp` CLI entry point that works
+  2. `python3 diskcomp.py --help` works with zero dependencies
+  3. CI passes on macOS, Linux, and Windows
+  4. README covers install options, usage examples, and safety model
+**Plans**: TBD
 
-**Requirements covered:** UI-01 through UI-05
+## Progress
 
-**Deliverables:**
-- `diskcomp/ui.py` — UI abstraction layer (rich renderer + ANSI fallback)
-- Per-folder scanning ticks (cyan → green ✓ on completion)
-- Live hash progress bar: `[████░░░░] 62.3%  1,204/1,938  12.4 MB/s  ETA 3m22s`
-- Final summary banner with duplicate/unique counts and space breakdown
-- Windows terminal compatibility (handles no-color mode, narrow terminals)
-- `--no-color` flag for CI/piped output
-
-**Done when:** The tool looks polished in macOS Terminal, iTerm2, Windows Terminal, and a basic Linux tty.
-
----
-
-## Phase 3 — Drive Health + Pre-scan Setup
-
-**Goal:** Before touching a single file, the user knows exactly what they're working with. No surprises mid-scan.
-
-**Requirements covered:** HLTH-01 through HLTH-05, SETUP-01 through SETUP-04
-
-**Deliverables:**
-- `diskcomp/health.py` — space summary, filesystem detection, read speed test, SMART integration
-- Interactive drive picker: lists all mounted drives with size + filesystem, user selects keep/other
-- Pre-scan health report printed before hashing starts
-- SMART data via `smartctl` subprocess if available; skip with notice if not
-- Read speed test: 128MB sequential read benchmark
-- Cross-platform filesystem warnings (e.g., "NTFS on macOS is read-only — deletion will be skipped")
-- `diskcomp/platform.py` — OS abstraction for drive enumeration (macOS `diskutil`, Linux `/proc/mounts`, Windows `wmic`)
-
-**Done when:** Running `diskcomp` with no arguments launches interactive setup, shows full health report, and only proceeds to scan after user confirmation.
-
----
-
-## Phase 4 — Guided Deletion Workflow
-
-**Goal:** Turn the report into action — safely. Two modes, undo log, zero surprises.
-
-**Requirements covered:** DEL-01 through DEL-08
-
-**Deliverables:**
-- `diskcomp/deleter.py` — deletion engine with undo log, read-only detection, progress display
-- Mode A (`--delete interactive`): per-file y/n/skip/abort prompt
-- Mode B (`--delete workflow`): dry-run → summary → "type DELETE to confirm" → execute
-- Undo log: `~/diskcomp-undo-YYYYMMDD-HHMMSS.json` written before first deletion
-- `diskcomp undo --log ~/diskcomp-undo-*.json` — restore from undo log
-- Read-only filesystem detection with clear error and skip behavior
-- Space freed counter updated in real-time during deletion
-
-**Done when:** A user can safely delete confirmed duplicates from a report, see a running tally of space freed, and restore any deleted file from the undo log.
-
----
-
-## Phase 5 — Packaging + Distribution
-
-**Goal:** Anyone can install and run diskcomp in under 60 seconds.
-
-**Requirements covered:** DIST-01 through DIST-04
-
-**Deliverables:**
-- `diskcomp.py` — single-file build script that bundles all modules into one portable file
-- `pyproject.toml` — pip-installable package with `diskcomp` CLI entry point
-- `build_single.py` — script that generates the single-file `diskcomp.py` from source modules
-- `README.md` — install options (pip vs single file), quick start, full usage reference, screenshots
-- `.github/workflows/release.yml` — GitHub Actions: test on Mac/Linux/Windows, build single file, publish to PyPI on tag
-- `tests/` — pytest suite covering scanner, hasher, reporter, deleter on all platforms
-
-**Done when:** `pip install diskcomp` works, `python3 diskcomp.py --help` works, CI passes on all three platforms.
-
----
-
-## Milestone Summary
-
-| Phase | Name | Requirements | Status |
-|-------|------|-------------|--------|
-| 1 | Core Engine + Report | CORE + RPT | ○ Pending |
-| 2 | Terminal UI | UI | ○ Pending |
-| 3 | Drive Health + Setup | HLTH + SETUP | ○ Pending |
-| 4 | Guided Deletion | DEL | ○ Pending |
-| 5 | Packaging + Distribution | DIST | ○ Pending |
-
-**v1.0 complete when:** All 5 phases done, CI green on macOS + Linux + Windows, README published, PyPI package live.
+| Phase | Plans Complete | Status | Completed |
+|-------|----------------|--------|-----------|
+| 1. Core Engine + Report | 0/3 | Planned | - |
+| 2. Terminal UI | 0/TBD | Not started | - |
+| 3. Drive Health + Setup | 0/TBD | Not started | - |
+| 4. Guided Deletion | 0/TBD | Not started | - |
+| 5. Packaging + Distribution | 0/TBD | Not started | - |
 
 ---
 *Roadmap created: 2026-03-22*
+*Plans finalized: 2026-03-22*
