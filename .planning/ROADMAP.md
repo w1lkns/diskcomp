@@ -26,7 +26,7 @@
 **Plans**: 3 plans
 
 Plans:
-- [ ] 01-01-PLAN.md — Types + Scanner (cross-platform filesystem walker with noise filtering)
+- [x] 01-01-PLAN.md — Types + Scanner (cross-platform filesystem walker with noise filtering) ✓ COMPLETE
 - [ ] 01-02-PLAN.md — Hasher + Reporter (SHA256 hashing and CSV/JSON output)
 - [ ] 01-03-PLAN.md — CLI + Tests (argparse interface and comprehensive test suite)
 
@@ -80,7 +80,7 @@ Plans:
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Core Engine + Report | 0/3 | Planned | - |
+| 1. Core Engine + Report | 1/3 | In Progress | 2026-03-22 (01-01) |
 | 2. Terminal UI | 0/TBD | Not started | - |
 | 3. Drive Health + Setup | 0/TBD | Not started | - |
 | 4. Guided Deletion | 0/TBD | Not started | - |

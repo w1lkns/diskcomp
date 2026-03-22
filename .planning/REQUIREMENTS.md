@@ -7,12 +7,12 @@
 
 ### Core Engine
 
-- [ ] **CORE-01**: Scanner walks two user-specified drives recursively, collects files ≥1KB
-- [ ] **CORE-02**: Scanner skips OS noise files (.DS_Store, Thumbs.db, $RECYCLE.BIN, etc.) on all platforms
+- [x] **CORE-01**: Scanner walks two user-specified drives recursively, collects files ≥1KB
+- [x] **CORE-02**: Scanner skips OS noise files (.DS_Store, Thumbs.db, $RECYCLE.BIN, etc.) on all platforms
 - [ ] **CORE-03**: SHA256 hashing identifies byte-for-byte duplicates regardless of filename or path
 - [ ] **CORE-04**: Results classify each WD-side file as DUPLICATE or UNIQUE
-- [ ] **CORE-05**: `--dry-run` flag walks and counts files without hashing (fast sanity check)
-- [ ] **CORE-06**: `--limit N` flag hashes only first N files per drive (testing mode)
+- [x] **CORE-05**: `--dry-run` flag walks and counts files without hashing (fast sanity check)
+- [x] **CORE-06**: `--limit N` flag hashes only first N files per drive (testing mode)
 
 ### Terminal UI
 
@@ -95,11 +95,12 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| CORE-01 through CORE-06 | Phase 1 | Pending |
+| CORE-01, CORE-02, CORE-05, CORE-06 | Phase 1 | Complete (01-01) |
+| CORE-03, CORE-04 | Phase 1 | Pending (01-02) |
 | UI-01 through UI-05 | Phase 2 | Pending |
 | HLTH-01 through HLTH-05 | Phase 3 | Pending |
 | SETUP-01 through SETUP-04 | Phase 3 | Pending |
-| RPT-01 through RPT-05 | Phase 1 | Pending |
+| RPT-01 through RPT-05 | Phase 1 | Pending (01-02) |
 | DEL-01 through DEL-08 | Phase 4 | Pending |
 | DIST-01 through DIST-04 | Phase 5 | Pending |
 
