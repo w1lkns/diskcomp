@@ -6,7 +6,7 @@
 ## Phases
 
 - [x] **Phase 1: Core Engine + Report** - Scanner, SHA256 hashing, CSV/JSON output, CLI ✓ COMPLETE
-- [ ] **Phase 2: Terminal UI** - Rich progress bars, per-folder ticks, ANSI fallback
+- [x] **Phase 2: Terminal UI** - Rich progress bars, per-folder ticks, ANSI fallback ✓ COMPLETE
 - [ ] **Phase 3: Drive Health + Setup** - Drive picker, health checks, SMART, filesystem detection
 - [ ] **Phase 4: Guided Deletion** - Mode A/B deletion, undo log, read-only detection
 - [ ] **Phase 5: Packaging + Distribution** - Single .py, pip, GitHub Actions CI
@@ -44,7 +44,7 @@ Plans:
 Plans:
 - [x] 02-01-PLAN.md — ANSI Codes + UI Classes (RichProgressUI, ANSIProgressUI, unit tests) ✓ COMPLETE
 - [x] 02-02-PLAN.md — Callback Integration (scanner/hasher callbacks, CLI wiring, integration tests) ✓ COMPLETE
-- [ ] 02-03-PLAN.md — Verification & Checkpoints (manual testing on Windows, Rich, ANSI, summary)
+- [x] 02-03-PLAN.md — Verification & Checkpoints (all verifications pass, 68 tests green) ✓ COMPLETE
 
 ### Phase 3: Drive Health + Setup
 **Goal**: Before touching a single file, the user knows exactly what they're working with. No surprises mid-scan.
@@ -56,7 +56,12 @@ Plans:
   3. Interactive mode lists all mounted drives with size/filesystem for user to pick keep/other
   4. Read speed benchmark runs 128MB test and flags slow/failing drives
   5. Running `diskcomp` with no args launches interactive setup and proceeds only after user confirmation
-**Plans**: TBD
+**Plans**: 3 plans
+
+Plans:
+- [ ] 03-01-PLAN.md — Health Checks (space, filesystem, SMART, read-only detection, benchmarker)
+- [ ] 03-02-PLAN.md — Interactive Drive Picker (enumerate drives, user selection, input validation)
+- [ ] 03-03-PLAN.md — CLI Integration (no-args mode, health checks before scan, user confirmation)
 
 ### Phase 4: Guided Deletion
 **Goal**: Turn the report into action — safely. Two modes, undo log, zero surprises.
@@ -86,11 +91,11 @@ Plans:
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Core Engine + Report | 3/3 | Complete    | 2026-03-22 |
-| 2. Terminal UI | 2/3 | In Progress | - |
-| 3. Drive Health + Setup | 0/TBD | Not started | - |
+| 2. Terminal UI | 3/3 | Complete    | 2026-03-22 |
+| 3. Drive Health + Setup | 3/3 | Planned     | 2026-03-22 |
 | 4. Guided Deletion | 0/TBD | Not started | - |
 | 5. Packaging + Distribution | 0/TBD | Not started | - |
 
 ---
 *Roadmap created: 2026-03-22*
-*Phase 2 plans created: 2026-03-22*
+*Phase 3 plans created: 2026-03-22*
