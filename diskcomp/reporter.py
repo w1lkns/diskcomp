@@ -1,0 +1,327 @@
+"""
+Duplicate classification and report generation for diskcomp.
+
+This module provides classes for identifying duplicate files across two drives
+and generating CSV and JSON reports with atomic writes to prevent partial writes
+on crashes.
+
+Key features:
+- DuplicateClassifier: Identifies duplicates by hash and classifies files
+- ReportWriter: Writes CSV and JSON reports atomically using temp → rename pattern
+"""
+
+import csv
+import json
+import os
+import tempfile
+from datetime import datetime
+from diskcomp.types import FileRecord, ScanResult
+
+
+class DuplicateClassifier:
+    """
+    Classifies files as DUPLICATE or UNIQUE based on hash comparison.
+
+    This classifier takes two ScanResult objects (from the keep and other drives)
+    and identifies which files are duplicated (same hash on both) and which are
+    unique to each drive.
+
+    The output includes a structured classification dict with duplicates, unique
+    files, and summary statistics.
+
+    Attributes:
+        keep_result: ScanResult from the "keep" drive
+        other_result: ScanResult from the "other" drive
+    """
+
+    def __init__(self, keep_result: ScanResult, other_result: ScanResult):
+        """
+        Initialize the classifier with two ScanResult objects.
+
+        Args:
+            keep_result: ScanResult from the drive to keep
+            other_result: ScanResult from the other drive
+        """
+        self.keep_result = keep_result
+        self.other_result = other_result
+
+    def classify(self) -> dict:
+        """
+        Classify files as DUPLICATE or UNIQUE.
+
+        Analyzes both ScanResult objects and returns a classification dict
+        with duplicates (files on both drives with same hash) and unique files
+        (files on only one drive).
+
+        Returns:
+            Classification dict with structure:
+            {
+                'duplicates': [
+                    {
+                        'action': 'DELETE_FROM_OTHER',
+                        'keep_path': str,
+                        'other_path': str,
+                        'size_mb': float,
+                        'hash': str,
+                    },
+                    ...
+                ],
+                'unique_in_keep': [
+                    {
+                        'action': 'UNIQUE_IN_KEEP',
+                        'keep_path': str,
+                        'other_path': None,
+                        'size_mb': float,
+                        'hash': str,
+                    },
+                    ...
+                ],
+                'unique_in_other': [
+                    {
+                        'action': 'UNIQUE_IN_OTHER',
+                        'keep_path': None,
+                        'other_path': str,
+                        'size_mb': float,
+                        'hash': str,
+                    },
+                    ...
+                ],
+                'summary': {
+                    'duplicate_count': int,
+                    'duplicate_size_mb': float,
+                    'unique_in_keep_count': int,
+                    'unique_in_keep_size_mb': float,
+                    'unique_in_other_count': int,
+                    'unique_in_other_size_mb': float,
+                }
+            }
+        """
+        # Build hash → FileRecord mapping for keep drive
+        keep_hash_map = {}
+        for record in self.keep_result.files:
+            if record.hash:
+                if record.hash not in keep_hash_map:
+                    keep_hash_map[record.hash] = []
+                keep_hash_map[record.hash].append(record)
+
+        # Build hash → FileRecord mapping for other drive
+        other_hash_map = {}
+        for record in self.other_result.files:
+            if record.hash:
+                if record.hash not in other_hash_map:
+                    other_hash_map[record.hash] = []
+                other_hash_map[record.hash].append(record)
+
+        duplicates = []
+        unique_in_other = []
+        unique_in_keep = []
+
+        # Process files in other drive
+        for hash_val, records in other_hash_map.items():
+            if hash_val in keep_hash_map:
+                # Duplicate: exists in both drives
+                for other_rec in records:
+                    keep_rec = keep_hash_map[hash_val][0]  # Use first match
+                    duplicates.append({
+                        'action': 'DELETE_FROM_OTHER',
+                        'keep_path': keep_rec.path,
+                        'other_path': other_rec.path,
+                        'size_mb': round(other_rec.size_bytes / (1024 ** 2), 2),
+                        'hash': hash_val,
+                    })
+            else:
+                # Unique in other
+                for other_rec in records:
+                    unique_in_other.append({
+                        'action': 'UNIQUE_IN_OTHER',
+                        'keep_path': None,
+                        'other_path': other_rec.path,
+                        'size_mb': round(other_rec.size_bytes / (1024 ** 2), 2),
+                        'hash': hash_val,
+                    })
+
+        # Process files in keep drive that aren't in other drive
+        for hash_val, records in keep_hash_map.items():
+            if hash_val not in other_hash_map:
+                # Unique in keep
+                for keep_rec in records:
+                    unique_in_keep.append({
+                        'action': 'UNIQUE_IN_KEEP',
+                        'keep_path': keep_rec.path,
+                        'other_path': None,
+                        'size_mb': round(keep_rec.size_bytes / (1024 ** 2), 2),
+                        'hash': hash_val,
+                    })
+
+        # Calculate summary statistics
+        duplicate_size_mb = sum(item['size_mb'] for item in duplicates)
+        unique_in_keep_size_mb = sum(item['size_mb'] for item in unique_in_keep)
+        unique_in_other_size_mb = sum(item['size_mb'] for item in unique_in_other)
+
+        return {
+            'duplicates': duplicates,
+            'unique_in_keep': unique_in_keep,
+            'unique_in_other': unique_in_other,
+            'summary': {
+                'duplicate_count': len(duplicates),
+                'duplicate_size_mb': round(duplicate_size_mb, 2),
+                'unique_in_keep_count': len(unique_in_keep),
+                'unique_in_keep_size_mb': round(unique_in_keep_size_mb, 2),
+                'unique_in_other_count': len(unique_in_other),
+                'unique_in_other_size_mb': round(unique_in_other_size_mb, 2),
+            }
+        }
+
+
+class ReportWriter:
+    """
+    Writes CSV and JSON reports with atomic writes.
+
+    This writer generates reports from classification dicts and writes them
+    atomically using a temp file → rename pattern to prevent partial writes
+    on system crashes.
+
+    Reports are timestamped (YYYYMMDD-HHMMSS) and include duplicates, unique
+    files, and summary statistics.
+
+    Attributes:
+        output_path: The exact path to write reports to (computed from output_dir)
+    """
+
+    def __init__(self, output_dir: str = None, output_path: str = None):
+        """
+        Initialize the report writer.
+
+        Either output_path or output_dir must be provided. If output_path is
+        given, it is used as-is. If output_dir is given, a timestamped filename
+        is generated.
+
+        Args:
+            output_dir: Directory to write reports to (default: home directory)
+                       Report filename will be generated: diskcomp-report-YYYYMMDD-HHMMSS
+            output_path: Exact path to write report to (overrides output_dir)
+        """
+        if output_path:
+            self.output_path = output_path
+        else:
+            # Use output_dir or default to home directory
+            if output_dir is None:
+                output_dir = os.path.expanduser("~")
+
+            # Generate timestamped filename
+            timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+            base_filename = f"diskcomp-report-{timestamp}"
+            self.output_path = os.path.join(output_dir, base_filename)
+
+    def _write_atomic(self, file_path: str, content_writer) -> None:
+        """
+        Write content to a file atomically using temp → rename pattern.
+
+        This method writes to a temporary file first, then renames it to the
+        target path. This ensures that if the process crashes mid-write, the
+        original file is not corrupted (or a partial temp file is left).
+
+        Args:
+            file_path: Target file path
+            content_writer: Callable that takes a file object and writes content
+
+        Raises:
+            Exception: If write fails (temp file is cleaned up automatically)
+        """
+        # Create temp file in same directory as target (same filesystem)
+        target_dir = os.path.dirname(file_path) or '.'
+        try:
+            with tempfile.NamedTemporaryFile(
+                mode='w',
+                dir=target_dir,
+                delete=False,
+                suffix='.tmp'
+            ) as tmp_file:
+                tmp_path = tmp_file.name
+                try:
+                    content_writer(tmp_file)
+                    tmp_file.flush()
+                except Exception:
+                    os.unlink(tmp_path)
+                    raise
+
+            # Atomic rename
+            os.rename(tmp_path, file_path)
+        except Exception as e:
+            # Clean up temp file if it still exists
+            try:
+                if 'tmp_path' in locals() and os.path.exists(tmp_path):
+                    os.unlink(tmp_path)
+            except Exception:
+                pass
+            raise e
+
+    def write_csv(self, classification: dict, path: str = None) -> None:
+        """
+        Write CSV report atomically.
+
+        Generates a CSV with columns: action, keep_path, other_path, size_mb, hash
+        Includes all duplicates followed by unique files.
+
+        Args:
+            classification: Classification dict from DuplicateClassifier.classify()
+            path: Custom path for the report (overrides self.output_path)
+
+        Raises:
+            Exception: If write fails
+        """
+        target_path = path or self.output_path
+        if not target_path.endswith('.csv'):
+            target_path += '.csv'
+
+        def writer_func(f):
+            csv_writer = csv.DictWriter(
+                f,
+                fieldnames=['action', 'keep_path', 'other_path', 'size_mb', 'hash']
+            )
+            csv_writer.writeheader()
+
+            # Write duplicates
+            for item in classification['duplicates']:
+                csv_writer.writerow(item)
+
+            # Write unique_in_keep
+            for item in classification['unique_in_keep']:
+                csv_writer.writerow(item)
+
+            # Write unique_in_other
+            for item in classification['unique_in_other']:
+                csv_writer.writerow(item)
+
+        self._write_atomic(target_path, writer_func)
+
+    def write_json(self, classification: dict, path: str = None) -> None:
+        """
+        Write JSON report atomically.
+
+        Generates a JSON file with the complete classification dict,
+        pretty-printed for readability.
+
+        Args:
+            classification: Classification dict from DuplicateClassifier.classify()
+            path: Custom path for the report (overrides self.output_path)
+
+        Raises:
+            Exception: If write fails
+        """
+        target_path = path or self.output_path
+        if not target_path.endswith('.json'):
+            target_path += '.json'
+
+        def writer_func(f):
+            json.dump(classification, f, indent=2)
+
+        self._write_atomic(target_path, writer_func)
+
+
+# Example usage (commented out):
+# classifier = DuplicateClassifier(keep_result, other_result)
+# classification = classifier.classify()
+# writer = ReportWriter(output_dir="/tmp")
+# writer.write_csv(classification)
+# writer.write_json(classification)
