@@ -1,0 +1,105 @@
+"""
+SHA256 hashing module for diskcomp.
+
+This module provides the FileHasher class which implements SHA256 hashing with
+chunked reading for memory efficiency and comprehensive error handling.
+
+Chunked reading ensures large files (GB+) can be hashed without loading the
+entire file into memory. Each chunk is processed incrementally through the
+hash function.
+"""
+
+import hashlib
+import os
+from diskcomp.types import FileRecord, FileNotReadableError
+
+
+class FileHasher:
+    """
+    Computes SHA256 hashes of files with chunked reading for memory efficiency.
+
+    This hasher reads files in fixed-size chunks (default 8KB) to minimize memory
+    usage while computing cryptographic hashes. Provides comprehensive error
+    handling for permission errors, IO errors, and file access issues.
+
+    Attributes:
+        chunk_size: Size of each read chunk in bytes (default 8192 = 8KB)
+
+    Example:
+        hasher = FileHasher(chunk_size=8192)
+        hash_value = hasher.hash_file("/path/to/file.txt")
+        # Returns "abc123def456..." (64-character hex string)
+    """
+
+    def __init__(self, chunk_size: int = 8192):
+        """
+        Initialize the FileHasher with a chunk size.
+
+        Args:
+            chunk_size: Size of each read chunk in bytes (default 8192 = 8KB)
+                       Larger chunks improve I/O efficiency but use more memory.
+                       Smaller chunks reduce memory usage but increase I/O operations.
+        """
+        self.chunk_size = chunk_size
+
+    def hash_file(self, file_path: str) -> str:
+        """
+        Compute the SHA256 hash of a file.
+
+        Reads the file in chunks and computes the SHA256 hash incrementally.
+        This approach allows hashing of very large files without loading the
+        entire file into memory.
+
+        Args:
+            file_path: Absolute filesystem path to the file to hash
+
+        Returns:
+            64-character hexadecimal string representing the SHA256 digest
+            (all lowercase)
+
+        Raises:
+            FileNotReadableError: If the file cannot be opened or read
+                - On PermissionError: reason "Permission denied"
+                - On OSError: reason "Cannot read file"
+                - On IOError: reason "IO error"
+        """
+        hasher = hashlib.sha256()
+
+        try:
+            with open(file_path, 'rb') as f:
+                while True:
+                    chunk = f.read(self.chunk_size)
+                    if not chunk:
+                        break
+                    hasher.update(chunk)
+            return hasher.hexdigest()
+
+        except PermissionError as e:
+            raise FileNotReadableError(f"Permission denied: {file_path}") from e
+        except OSError as e:
+            raise FileNotReadableError(f"Cannot read file: {file_path}") from e
+        except IOError as e:
+            raise FileNotReadableError(f"IO error reading file: {file_path}") from e
+
+    def hash_file_record(self, record: FileRecord) -> FileRecord:
+        """
+        Hash a FileRecord and return an updated copy.
+
+        This method takes a FileRecord (from the scanner) and computes its SHA256 hash.
+        On success, updates the record's hash field. On error, sets the error field
+        and returns the record so the caller can decide how to handle it.
+
+        Args:
+            record: FileRecord object with path and other metadata
+
+        Returns:
+            FileRecord with hash field updated on success, or error field set on failure.
+            Returns a new object (modified copy of input record).
+        """
+        try:
+            hash_value = self.hash_file(record.path)
+            record.hash = hash_value
+            return record
+        except FileNotReadableError as e:
+            record.error = str(e)
+            return record
