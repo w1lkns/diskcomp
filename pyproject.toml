@@ -1,0 +1,44 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "diskcomp"
+version = "0.1.0"
+description = "Compare two drives and find duplicate files. Zero dependencies, cross-platform, with undo."
+authors = [
+    {name = "Wilkins Morales", email = "wilkinscom@gmail.com"}
+]
+license = {text = "MIT"}
+readme = "README.md"
+requires-python = ">=3.8"
+keywords = [
+    "deduplication",
+    "drive-comparison",
+    "file-management",
+    "cli",
+    "cross-platform"
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Console",
+    "Intended Audience :: End Users/Desktop",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: System :: Filesystems",
+    "Topic :: Utilities",
+]
+
+[project.urls]
+Repository = "https://github.com/w1lkns/diskcomp"
+Issues = "https://github.com/w1lkns/diskcomp/issues"
+
+[project.scripts]
+diskcomp = "diskcomp.cli:main"
+
+[project.optional-dependencies]
+rich = ["rich>=13.0.0"]
