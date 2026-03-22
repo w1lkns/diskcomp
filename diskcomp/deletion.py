@@ -308,7 +308,7 @@ class DeletionOrchestrator:
                     files_deleted=0,
                     space_freed_mb=0.0,
                     files_skipped=len(self.candidates),
-                    aborted=True,
+                    aborted=False,
                     undo_log_path=None,
                     errors=[]
                 )

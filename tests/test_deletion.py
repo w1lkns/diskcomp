@@ -545,7 +545,7 @@ class TestDeletionOrchestrator(unittest.TestCase):
         with patch('builtins.input', return_value='yes'):
             result = orchestrator.batch_mode()
 
-        assert result.aborted is True, "Should be aborted if 'DELETE' not typed exactly"
+        assert result.aborted is False, "Should not be aborted on wrong confirmation — only real Ctrl+C sets aborted"
         assert result.files_deleted == 0, "No files should be deleted"
         assert result.files_skipped == len(candidates), "All files should be skipped"
 
@@ -574,7 +574,7 @@ class TestDeletionOrchestrator(unittest.TestCase):
                 result = orchestrator.batch_mode()
 
         # Preview should have been printed before the confirmation prompt
-        assert result.aborted is True, "Should abort when DELETE not typed"
+        assert result.aborted is False, "Should not be aborted when DELETE not typed — only real Ctrl+C sets aborted"
 
     def test_batch_mode_calls_ui_start_deletion(self):
         """Test that batch mode calls ui.start_deletion()."""

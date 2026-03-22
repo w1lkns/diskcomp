@@ -54,9 +54,8 @@ result: pass
 
 ### 10. Abort Message Format
 expected: Pressing Ctrl+C during deletion (either mode) shows a message in the format: "^C Aborted. N files deleted (X MB freed) before abort. Undo log: path/to/undo.json. Remaining N files were not deleted." Then exits cleanly (no Python traceback).
-result: issue
-reported: "When the user types the wrong confirmation string in batch mode, the ^C Aborted message fires incorrectly — aborted=True is returned on a normal cancellation. The abort message should only appear on real Ctrl+C mid-execution, not when the user just typed the wrong confirmation string."
-severity: major
+result: pass
+fix: "deletion.py:311 changed aborted=True to aborted=False in wrong-confirmation branch. Updated 2 tests (test_batch_mode_requires_delete_confirmation, test_batch_mode_dry_run_preview) to assert aborted is False."
 
 ### 11. Read-Only Drive Detection
 expected: If `--delete-from` is used with a report where the other drive is read-only (e.g., NTFS on macOS), those files are skipped with a warning before deletion starts. The warning explains why those files were skipped — deletion candidates on writable paths still proceed normally.
@@ -65,17 +64,15 @@ result: pass
 ## Summary
 
 total: 11
-passed: 10
-issues: 1
+passed: 11
+issues: 0
 pending: 0
 skipped: 0
 
 ## Gaps
 
 - truth: "The ^C Aborted message and aborted=True result should only appear on real Ctrl+C mid-execution. A wrong confirmation string in batch mode is a normal cancellation — it should exit cleanly without triggering the abort message."
-  status: failed
-  reason: "User reported: When the user types the wrong confirmation string in batch mode, the ^C Aborted message fires incorrectly — aborted=True is returned on a normal cancellation."
+  status: fixed
+  fix: "deletion.py:311 — changed aborted=True to aborted=False in wrong-confirmation branch"
   severity: major
   test: 10
-  artifacts: []
-  missing: []
