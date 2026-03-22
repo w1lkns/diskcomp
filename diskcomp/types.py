@@ -151,3 +151,43 @@ class BenchmarkResult:
     bytes_read: int
     success: bool
     error: Optional[str] = None
+
+
+@dataclass
+class UndoEntry:
+    """
+    Single file deletion record for audit/undo log.
+
+    Attributes:
+        path: Full path to deleted file (as it appeared on disk)
+        size_mb: File size in MB (float, for user-friendly reporting)
+        hash: SHA256 hex string (for verification)
+        deleted_at: ISO timestamp string (datetime.now().isoformat())
+    """
+    path: str
+    size_mb: float
+    hash: str
+    deleted_at: str  # ISO format timestamp
+
+
+@dataclass
+class DeletionResult:
+    """
+    Result of a deletion workflow (Mode A or B).
+
+    Attributes:
+        mode: 'interactive' or 'batch' (the mode that was executed)
+        files_deleted: Number of files successfully removed
+        space_freed_mb: Total space freed in MB (float)
+        files_skipped: Number of files not deleted (user chose no, or read-only, or error)
+        aborted: True if user pressed Ctrl+C or selected abort during workflow
+        undo_log_path: Path to the undo log JSON file (None if no deletions occurred)
+        errors: List of error strings encountered (warnings, skipped files, etc.)
+    """
+    mode: str
+    files_deleted: int
+    space_freed_mb: float
+    files_skipped: int
+    aborted: bool
+    undo_log_path: Optional[str]
+    errors: List[str] = field(default_factory=list)
