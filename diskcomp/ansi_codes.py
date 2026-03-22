@@ -90,9 +90,9 @@ def format_speed(bytes_per_sec: float) -> str:
         >>> format_speed(10240)
         '10.0 KB/s'
     """
-    if bytes_per_sec >= 1048576:  # GB/s threshold
+    if bytes_per_sec >= 1073741824:  # GB/s threshold (1GB)
         return f"{bytes_per_sec / 1073741824:.1f} GB/s"
-    elif bytes_per_sec >= 1024:  # MB/s threshold
+    elif bytes_per_sec >= 1048576:  # MB/s threshold (1MB)
         return f"{bytes_per_sec / 1048576:.1f} MB/s"
     else:  # KB/s
         return f"{bytes_per_sec / 1024:.1f} KB/s"
