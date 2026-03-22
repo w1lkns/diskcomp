@@ -9,7 +9,7 @@ which drive to keep and which drive to compare against.
 import sys
 from typing import List, Optional, Dict
 
-from diskcomp.health import check_drive_health, get_filesystem_type
+from diskcomp.health import check_drive_health, get_filesystem_type, get_volume_label
 from diskcomp.types import DriveInfo
 
 # Optional dependency: psutil for disk partitions
@@ -45,6 +45,7 @@ def _get_drives_psutil() -> List[DriveInfo]:
     try:
         for partition in psutil.disk_partitions(all=False):
             health = check_drive_health(partition.mountpoint)
+            volume_label = get_volume_label(partition.mountpoint)
             drive = DriveInfo(
                 device=partition.device,
                 mountpoint=partition.mountpoint,
@@ -52,7 +53,8 @@ def _get_drives_psutil() -> List[DriveInfo]:
                 total_gb=health.total_gb,
                 used_gb=health.used_gb,
                 free_gb=health.free_gb,
-                is_writable=health.is_writable
+                is_writable=health.is_writable,
+                volume_label=volume_label
             )
             drives.append(drive)
     except Exception as e:
@@ -110,6 +112,7 @@ def _get_drives_macos() -> List[DriveInfo]:
 
                                 try:
                                     health = check_drive_health(mountpoint)
+                                    volume_label = get_volume_label(mountpoint)
                                     drive = DriveInfo(
                                         device=device,
                                         mountpoint=mountpoint,
@@ -117,7 +120,8 @@ def _get_drives_macos() -> List[DriveInfo]:
                                         total_gb=health.total_gb,
                                         used_gb=health.used_gb,
                                         free_gb=health.free_gb,
-                                        is_writable=health.is_writable
+                                        is_writable=health.is_writable,
+                                        volume_label=volume_label
                                     )
                                     drives.append(drive)
                                 except Exception:
@@ -163,6 +167,7 @@ def _get_drives_linux() -> List[DriveInfo]:
 
                     try:
                         health = check_drive_health(mountpoint)
+                        volume_label = get_volume_label(mountpoint)
                         drive = DriveInfo(
                             device=device,
                             mountpoint=mountpoint,
@@ -170,7 +175,8 @@ def _get_drives_linux() -> List[DriveInfo]:
                             total_gb=health.total_gb,
                             used_gb=health.used_gb,
                             free_gb=health.free_gb,
-                            is_writable=health.is_writable
+                            is_writable=health.is_writable,
+                            volume_label=volume_label
                         )
                         drives.append(drive)
                     except Exception:
@@ -220,6 +226,8 @@ def _get_drives_windows() -> List[DriveInfo]:
                             import os
                             is_writable = os.access(device, os.W_OK)
 
+                            volume_label = get_volume_label(device)
+
                             drive = DriveInfo(
                                 device=device,
                                 mountpoint=device,
@@ -227,7 +235,8 @@ def _get_drives_windows() -> List[DriveInfo]:
                                 total_gb=total_gb,
                                 used_gb=used_gb,
                                 free_gb=free_gb,
-                                is_writable=is_writable
+                                is_writable=is_writable,
+                                volume_label=volume_label
                             )
                             drives.append(drive)
                         except (ValueError, IndexError):
@@ -289,7 +298,9 @@ def interactive_drive_picker() -> Optional[Dict[str, str]]:
     # Display available drives
     print("\n=== Available Drives ===\n")
     for i, drive in enumerate(drives, 1):
-        print(f"{i}. {drive.mountpoint}")
+        # Display volume label if available, otherwise use mountpoint
+        label_or_path = drive.volume_label or drive.mountpoint
+        print(f"{i}. {label_or_path} ({drive.mountpoint})")
         print(f"   Device: {drive.device}")
         print(f"   Filesystem: {drive.fstype}")
         print(f"   Space: {drive.used_gb}GB / {drive.total_gb}GB used")
