@@ -91,6 +91,7 @@ class DriveInfo:
         used_gb: Used space in GB
         free_gb: Free space in GB
         is_writable: Result of os.access(mountpoint, os.W_OK)
+        volume_label: Volume name/label if available, else None
     """
     device: str
     mountpoint: str
@@ -99,6 +100,7 @@ class DriveInfo:
     used_gb: float
     free_gb: float
     is_writable: bool
+    volume_label: Optional[str] = None
 
 
 @dataclass
@@ -116,6 +118,7 @@ class HealthCheckResult:
         warnings: List of warning messages
         errors: List of error messages
         smart_data: SMART info if available, else None
+        benchmark_result: BenchmarkResult if benchmark was run, else None
     """
     mountpoint: str
     total_gb: float
@@ -126,6 +129,7 @@ class HealthCheckResult:
     warnings: List[str] = field(default_factory=list)
     errors: List[str] = field(default_factory=list)
     smart_data: Optional[Dict] = None
+    benchmark_result: Optional['BenchmarkResult'] = None
 
 
 @dataclass
