@@ -8,7 +8,7 @@
 - [x] **Phase 1: Core Engine + Report** - Scanner, SHA256 hashing, CSV/JSON output, CLI ✓ COMPLETE
 - [x] **Phase 2: Terminal UI** - Rich progress bars, per-folder ticks, ANSI fallback ✓ COMPLETE
 - [x] **Phase 3: Drive Health + Setup** - Drive picker, health checks, SMART, filesystem detection ✓ COMPLETE
-- [ ] **Phase 4: Guided Deletion** - Mode A/B deletion, undo log, read-only detection
+- [x] **Phase 4: Guided Deletion** - Mode A/B deletion, undo log, read-only detection ✓ COMPLETE
 - [ ] **Phase 5: Packaging + Distribution** - Single .py, pip, GitHub Actions CI
 
 ## Phase Details
@@ -76,9 +76,9 @@ Plans:
 **Plans**: 3 plans
 
 Plans:
-- [ ] 04-01-PLAN.md — Foundation (Types, Report Reader, Undo Log)
-- [ ] 04-02-PLAN.md — Orchestration (Mode A & B workflows, UI extensions)
-- [ ] 04-03-PLAN.md — CLI Integration (--delete-from and --undo flags)
+- [x] 04-01-PLAN.md — Foundation (Types, Report Reader, Undo Log) ✓ COMPLETE
+- [x] 04-02-PLAN.md — Orchestration (Mode A & B workflows, UI extensions) ✓ COMPLETE
+- [x] 04-03-PLAN.md — CLI Integration (--delete-from and --undo flags) ✓ COMPLETE
 
 ### Phase 5: Packaging + Distribution
 **Goal**: Anyone can install and run diskcomp in under 60 seconds.
@@ -89,7 +89,10 @@ Plans:
   2. `python3 diskcomp.py --help` works with zero dependencies
   3. CI passes on macOS, Linux, and Windows
   4. README covers install options, usage examples, and safety model
-**Plans**: TBD
+**Plans**: 1 plan
+
+Plans:
+- [ ] 05-01-PLAN.md — Packaging + Distribution (pyproject.toml, build_single.py, CI matrix, README)
 
 ## Progress
 
@@ -98,9 +101,11 @@ Plans:
 | 1. Core Engine + Report | 3/3 | Complete    | 2026-03-22 |
 | 2. Terminal UI | 3/3 | Complete    | 2026-03-22 |
 | 3. Drive Health + Setup | 3/3 | Complete    | 2026-03-22 |
-| 4. Guided Deletion | 0/3 | Planned     | 2026-03-22 |
-| 5. Packaging + Distribution | 0/TBD | Not started | - |
+| 4. Guided Deletion | 3/3 | Complete    | 2026-03-22 |
+| 5. Packaging + Distribution | 0/1 | Planning    | - |
 
 ---
 *Roadmap created: 2026-03-22*
 *Phase 4 plans created: 2026-03-22*
+*Phase 4 complete: 2026-03-22 18:15*
+*Phase 5 plan created: 2026-03-22*
