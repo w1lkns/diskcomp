@@ -39,7 +39,12 @@ Plans:
   2. Live hash progress bar shows percentage, files done/total, MB/s speed, and ETA
   3. Tool works with `rich` when installed and falls back to plain ANSI when not
   4. Final summary banner shows duplicates count + MB, unique count + MB, report path
-**Plans**: TBD
+**Plans**: 3 plans
+
+Plans:
+- [ ] 02-01-PLAN.md — ANSI Codes + UI Classes (RichProgressUI, ANSIProgressUI, unit tests)
+- [ ] 02-02-PLAN.md — Callback Integration (scanner/hasher callbacks, CLI wiring, integration tests)
+- [ ] 02-03-PLAN.md — Verification & Checkpoints (manual testing on Windows, Rich, ANSI, summary)
 
 ### Phase 3: Drive Health + Setup
 **Goal**: Before touching a single file, the user knows exactly what they're working with. No surprises mid-scan.
@@ -81,11 +86,11 @@ Plans:
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Core Engine + Report | 3/3 | Complete    | 2026-03-22 |
-| 2. Terminal UI | 0/TBD | Not started | - |
+| 2. Terminal UI | 0/3 | Planning    | - |
 | 3. Drive Health + Setup | 0/TBD | Not started | - |
 | 4. Guided Deletion | 0/TBD | Not started | - |
 | 5. Packaging + Distribution | 0/TBD | Not started | - |
 
 ---
 *Roadmap created: 2026-03-22*
-*Plans finalized: 2026-03-22*
+*Phase 2 plans created: 2026-03-22*
