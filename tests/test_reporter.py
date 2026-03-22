@@ -1,4 +1,4 @@
-"""Unit tests for DuplicateClassifier and ReportWriter."""
+"""Unit tests for DuplicateClassifier, ReportWriter, and ReportReader."""
 
 import unittest
 import tempfile
@@ -9,7 +9,7 @@ import shutil
 from pathlib import Path
 
 from diskcomp.types import FileRecord, ScanResult
-from diskcomp.reporter import DuplicateClassifier, ReportWriter
+from diskcomp.reporter import DuplicateClassifier, ReportWriter, ReportReader
 
 
 class TestDuplicateClassifier(unittest.TestCase):
@@ -200,6 +200,122 @@ class TestReportWriter(unittest.TestCase):
 
         assert os.path.exists(writer.output_path), "Custom path should be used"
         assert "custom-report" in writer.output_path, "Should contain custom name"
+
+
+class TestReportReader(unittest.TestCase):
+    """Test suite for ReportReader class."""
+
+    def setUp(self):
+        """Create temporary test directory and sample reports."""
+        self.test_dir = tempfile.mkdtemp()
+
+    def tearDown(self):
+        """Clean up test directory."""
+        if os.path.exists(self.test_dir):
+            shutil.rmtree(self.test_dir)
+
+    def test_load_csv_filters_deletion_candidates(self):
+        """Test that load_csv filters for DELETE_FROM_OTHER action."""
+        csv_path = os.path.join(self.test_dir, "report.csv")
+        with open(csv_path, 'w', newline='') as f:
+            writer = csv.DictWriter(
+                f,
+                fieldnames=['action', 'keep_path', 'other_path', 'size_mb', 'hash']
+            )
+            writer.writeheader()
+            writer.writerow({
+                'action': 'DELETE_FROM_OTHER',
+                'keep_path': '/keep/dup.txt',
+                'other_path': '/other/dup.txt',
+                'size_mb': '10.5',
+                'hash': 'abc123'
+            })
+            writer.writerow({
+                'action': 'UNIQUE_IN_KEEP',
+                'keep_path': '/keep/unique.txt',
+                'other_path': None,
+                'size_mb': '5.0',
+                'hash': 'def456'
+            })
+
+        candidates = ReportReader.load_csv(csv_path)
+        assert len(candidates) == 1, "Should only return DELETE_FROM_OTHER row"
+        assert candidates[0]['action'] == 'DELETE_FROM_OTHER'
+
+    def test_load_json_filters_deletion_candidates(self):
+        """Test that load_json filters for DELETE_FROM_OTHER action."""
+        json_path = os.path.join(self.test_dir, "report.json")
+        report_data = {
+            'duplicates': [
+                {
+                    'action': 'DELETE_FROM_OTHER',
+                    'keep_path': '/keep/dup.txt',
+                    'other_path': '/other/dup.txt',
+                    'size_mb': 10.5,
+                    'hash': 'abc123'
+                },
+                {
+                    'action': 'UNIQUE_IN_KEEP',
+                    'keep_path': '/keep/unique.txt',
+                    'other_path': None,
+                    'size_mb': 5.0,
+                    'hash': 'def456'
+                }
+            ]
+        }
+        with open(json_path, 'w') as f:
+            json.dump(report_data, f)
+
+        candidates = ReportReader.load_json(json_path)
+        assert len(candidates) == 1, "Should only return DELETE_FROM_OTHER row"
+
+    def test_load_auto_detects_format(self):
+        """Test that load() auto-detects format by extension."""
+        # Create JSON file
+        json_path = os.path.join(self.test_dir, "report.json")
+        report_data = {
+            'duplicates': [
+                {
+                    'action': 'DELETE_FROM_OTHER',
+                    'keep_path': '/keep/file.txt',
+                    'other_path': '/other/file.txt',
+                    'size_mb': 10.0,
+                    'hash': 'hash1'
+                }
+            ]
+        }
+        with open(json_path, 'w') as f:
+            json.dump(report_data, f)
+
+        # Test .json detection
+        candidates = ReportReader.load(json_path)
+        assert len(candidates) == 1, "Should load JSON by extension"
+
+        # Create CSV file
+        csv_path = os.path.join(self.test_dir, "report.csv")
+        with open(csv_path, 'w', newline='') as f:
+            writer = csv.DictWriter(
+                f,
+                fieldnames=['action', 'keep_path', 'other_path', 'size_mb', 'hash']
+            )
+            writer.writeheader()
+            writer.writerow({
+                'action': 'DELETE_FROM_OTHER',
+                'keep_path': '/keep/file.txt',
+                'other_path': '/other/file.txt',
+                'size_mb': '10.0',
+                'hash': 'hash1'
+            })
+
+        # Test CSV detection
+        candidates = ReportReader.load(csv_path)
+        assert len(candidates) == 1, "Should load CSV by default"
+
+    def test_load_raises_filenotfounderror(self):
+        """Test that load() raises FileNotFoundError for missing files."""
+        missing = os.path.join(self.test_dir, "missing.csv")
+        with self.assertRaises(FileNotFoundError):
+            ReportReader.load(missing)
 
 
 if __name__ == "__main__":
