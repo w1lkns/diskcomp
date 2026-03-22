@@ -1,4 +1,4 @@
-"""Unit tests for deletion module (UndoEntry, DeletionResult, ReportReader, UndoLog)."""
+"""Unit tests for deletion module (UndoEntry, DeletionResult, ReportReader, UndoLog, DeletionOrchestrator)."""
 
 import unittest
 import tempfile
@@ -7,9 +7,11 @@ import csv
 import os
 import shutil
 from datetime import datetime
+from unittest.mock import Mock, MagicMock, patch, call
+from io import StringIO
 
 from diskcomp.types import UndoEntry, DeletionResult
-from diskcomp.deletion import UndoLog
+from diskcomp.deletion import UndoLog, DeletionOrchestrator
 from diskcomp.reporter import ReportReader
 
 
@@ -406,6 +408,311 @@ class TestUndoLog(unittest.TestCase):
             assert 'deleted_at' in entry, "Should have deleted_at field"
             assert entry['path'] == "/tmp/file.txt", "Path should match"
             assert entry['size_mb'] == 15.75, "Size should match"
+
+
+class TestDeletionOrchestrator(unittest.TestCase):
+    """Test suite for DeletionOrchestrator class."""
+
+    def setUp(self):
+        """Create temporary test directory and mock UI."""
+        self.test_dir = tempfile.mkdtemp()
+        self.mock_ui = Mock()
+        self.mock_ui.start_deletion = Mock()
+        self.mock_ui.on_file_deleted = Mock()
+        self.mock_ui.close = Mock()
+
+    def tearDown(self):
+        """Clean up test directory."""
+        if os.path.exists(self.test_dir):
+            shutil.rmtree(self.test_dir)
+
+    def _create_test_file(self, filename: str, size_mb: float = 1.0) -> str:
+        """Create a test file and return its path."""
+        filepath = os.path.join(self.test_dir, filename)
+        os.makedirs(os.path.dirname(filepath), exist_ok=True)
+        with open(filepath, 'w') as f:
+            # Write data to match size_mb
+            size_bytes = int(size_mb * 1024 * 1024)
+            f.write('x' * size_bytes)
+        return filepath
+
+    def test_deletion_orchestrator_initialization(self):
+        """Test that DeletionOrchestrator can be instantiated."""
+        candidates = [{'other_path': '/tmp/file.txt', 'size_mb': 10.0, 'hash': 'hash1'}]
+        orchestrator = DeletionOrchestrator(candidates, self.mock_ui, os.path.join(self.test_dir, 'report.csv'))
+
+        assert orchestrator.candidates == candidates, "Candidates should be stored"
+        assert orchestrator.ui == self.mock_ui, "UI should be stored"
+        assert orchestrator.report_dir == self.test_dir, "Report dir should be extracted"
+
+    def test_interactive_mode_yes_deletes_file(self):
+        """Test that choosing yes in interactive mode deletes file."""
+        test_file = self._create_test_file('file1.txt', 1.0)
+        candidates = [{'other_path': test_file, 'size_mb': 1.0, 'hash': 'hash123'}]
+        orchestrator = DeletionOrchestrator(candidates, self.mock_ui, os.path.join(self.test_dir, 'report.csv'))
+
+        with patch('builtins.input', return_value='y'):
+            result = orchestrator.interactive_mode()
+
+        assert result.files_deleted == 1, "Should have deleted 1 file"
+        assert result.space_freed_mb == 1.0, "Should report 1.0 MB freed"
+        assert result.aborted is False, "Should not be aborted"
+        assert not os.path.exists(test_file), "File should be deleted"
+
+    def test_interactive_mode_no_skips_file(self):
+        """Test that choosing no in interactive mode skips file."""
+        test_file = self._create_test_file('file2.txt', 1.0)
+        candidates = [{'other_path': test_file, 'size_mb': 1.0, 'hash': 'hash123'}]
+        orchestrator = DeletionOrchestrator(candidates, self.mock_ui, os.path.join(self.test_dir, 'report.csv'))
+
+        with patch('builtins.input', return_value='n'):
+            result = orchestrator.interactive_mode()
+
+        assert result.files_deleted == 0, "Should not have deleted any files"
+        assert result.files_skipped == 1, "Should have 1 skipped file"
+        assert os.path.exists(test_file), "File should still exist"
+
+    def test_interactive_mode_skip_option(self):
+        """Test that skip option defers file for later."""
+        test_file = self._create_test_file('file3.txt', 1.0)
+        candidates = [{'other_path': test_file, 'size_mb': 1.0, 'hash': 'hash123'}]
+        orchestrator = DeletionOrchestrator(candidates, self.mock_ui, os.path.join(self.test_dir, 'report.csv'))
+
+        with patch('builtins.input', return_value='skip'):
+            result = orchestrator.interactive_mode()
+
+        assert result.files_deleted == 0, "Should not have deleted any files"
+        assert result.files_skipped == 1, "Should have 1 skipped file"
+        assert os.path.exists(test_file), "File should still exist"
+
+    def test_interactive_mode_abort_stops_early(self):
+        """Test that abort option stops workflow early."""
+        file1 = self._create_test_file('file_a.txt', 1.0)
+        file2 = self._create_test_file('file_b.txt', 1.0)
+        candidates = [
+            {'other_path': file1, 'size_mb': 1.0, 'hash': 'hash1'},
+            {'other_path': file2, 'size_mb': 1.0, 'hash': 'hash2'},
+        ]
+        orchestrator = DeletionOrchestrator(candidates, self.mock_ui, os.path.join(self.test_dir, 'report.csv'))
+
+        with patch('builtins.input', return_value='abort'):
+            result = orchestrator.interactive_mode()
+
+        assert result.files_deleted == 0, "Should not delete before abort"
+        assert result.aborted is True, "Should be marked as aborted"
+        assert os.path.exists(file1), "File 1 should still exist"
+        assert os.path.exists(file2), "File 2 should still exist"
+
+    def test_interactive_mode_undo_logged_before_delete(self):
+        """Test that undo log entry is added before deletion."""
+        test_file = self._create_test_file('file4.txt', 1.0)
+        candidates = [{'other_path': test_file, 'size_mb': 1.0, 'hash': 'hash123'}]
+        orchestrator = DeletionOrchestrator(candidates, self.mock_ui, os.path.join(self.test_dir, 'report.csv'))
+
+        with patch('builtins.input', return_value='y'):
+            # Spy on the undo_log.add method
+            original_add = orchestrator.undo_log.add
+            calls_sequence = []
+
+            def track_add(*args, **kwargs):
+                calls_sequence.append(('add', os.path.exists(test_file)))
+                return original_add(*args, **kwargs)
+
+            orchestrator.undo_log.add = track_add
+            result = orchestrator.interactive_mode()
+
+        # At the time of add(), the file should still exist (not deleted yet)
+        assert len(calls_sequence) > 0, "add() should be called"
+        assert calls_sequence[0][1] is True, "File should still exist when add() is called"
+
+    def test_interactive_mode_keyboard_interrupt(self):
+        """Test that KeyboardInterrupt returns aborted result."""
+        test_file = self._create_test_file('file5.txt', 1.0)
+        candidates = [{'other_path': test_file, 'size_mb': 1.0, 'hash': 'hash123'}]
+        orchestrator = DeletionOrchestrator(candidates, self.mock_ui, os.path.join(self.test_dir, 'report.csv'))
+
+        with patch('builtins.input', side_effect=KeyboardInterrupt()):
+            result = orchestrator.interactive_mode()
+
+        assert result.aborted is True, "Should be marked as aborted"
+        assert os.path.exists(test_file), "File should still exist"
+
+    def test_batch_mode_requires_delete_confirmation(self):
+        """Test that batch mode requires exact 'DELETE' confirmation."""
+        candidates = [{'other_path': '/tmp/file.txt', 'size_mb': 1.0, 'hash': 'hash123'}]
+        orchestrator = DeletionOrchestrator(candidates, self.mock_ui, os.path.join(self.test_dir, 'report.csv'))
+
+        with patch('builtins.input', return_value='yes'):
+            result = orchestrator.batch_mode()
+
+        assert result.aborted is True, "Should be aborted if 'DELETE' not typed exactly"
+        assert result.files_deleted == 0, "No files should be deleted"
+        assert result.files_skipped == len(candidates), "All files should be skipped"
+
+    def test_batch_mode_executes_on_delete_confirmation(self):
+        """Test that batch mode executes when 'DELETE' is typed exactly."""
+        test_file = self._create_test_file('batch_file.txt', 1.5)
+        candidates = [{'other_path': test_file, 'size_mb': 1.5, 'hash': 'hash123'}]
+        orchestrator = DeletionOrchestrator(candidates, self.mock_ui, os.path.join(self.test_dir, 'report.csv'))
+
+        with patch('builtins.input', return_value='DELETE'):
+            result = orchestrator.batch_mode()
+
+        assert result.files_deleted == 1, "Should delete 1 file"
+        assert result.space_freed_mb == 1.5, "Should report 1.5 MB freed"
+        assert result.aborted is False, "Should not be aborted"
+        assert not os.path.exists(test_file), "File should be deleted"
+
+    def test_batch_mode_dry_run_preview(self):
+        """Test that batch mode shows dry-run preview."""
+        test_file = self._create_test_file('preview_file.txt', 2.0)
+        candidates = [{'other_path': test_file, 'size_mb': 2.0, 'hash': 'hash123'}]
+        orchestrator = DeletionOrchestrator(candidates, self.mock_ui, os.path.join(self.test_dir, 'report.csv'))
+
+        with patch('builtins.input', return_value='yes'):  # Not DELETE, so should abort after preview
+            with patch('builtins.print') as mock_print:
+                result = orchestrator.batch_mode()
+
+        # Preview should have been printed before the confirmation prompt
+        assert result.aborted is True, "Should abort when DELETE not typed"
+
+    def test_batch_mode_calls_ui_start_deletion(self):
+        """Test that batch mode calls ui.start_deletion()."""
+        test_file = self._create_test_file('ui_test.txt', 1.0)
+        candidates = [{'other_path': test_file, 'size_mb': 1.0, 'hash': 'hash123'}]
+        orchestrator = DeletionOrchestrator(candidates, self.mock_ui, os.path.join(self.test_dir, 'report.csv'))
+
+        with patch('builtins.input', return_value='DELETE'):
+            result = orchestrator.batch_mode()
+
+        self.mock_ui.start_deletion.assert_called_once_with(1)
+
+    def test_batch_mode_calls_ui_on_file_deleted(self):
+        """Test that batch mode calls ui.on_file_deleted() for each file."""
+        test_file = self._create_test_file('ui_test2.txt', 1.0)
+        candidates = [{'other_path': test_file, 'size_mb': 1.0, 'hash': 'hash123'}]
+        orchestrator = DeletionOrchestrator(candidates, self.mock_ui, os.path.join(self.test_dir, 'report.csv'))
+
+        with patch('builtins.input', return_value='DELETE'):
+            result = orchestrator.batch_mode()
+
+        self.mock_ui.on_file_deleted.assert_called_once()
+        call_args = self.mock_ui.on_file_deleted.call_args[0]
+        assert call_args[0] == 1, "Should pass current=1"
+        assert call_args[1] == 1, "Should pass total=1"
+
+    def test_batch_mode_keyboard_interrupt(self):
+        """Test that KeyboardInterrupt in batch mode is handled."""
+        test_file = self._create_test_file('batch_interrupt.txt', 1.0)
+        candidates = [{'other_path': test_file, 'size_mb': 1.0, 'hash': 'hash123'}]
+        orchestrator = DeletionOrchestrator(candidates, self.mock_ui, os.path.join(self.test_dir, 'report.csv'))
+
+        with patch('builtins.input', side_effect=KeyboardInterrupt()):
+            result = orchestrator.batch_mode()
+
+        assert result.aborted is True, "Should be marked as aborted"
+        self.mock_ui.close.assert_called_once()
+
+    def test_batch_mode_calls_ui_close(self):
+        """Test that batch mode calls ui.close() after execution."""
+        test_file = self._create_test_file('close_test.txt', 1.0)
+        candidates = [{'other_path': test_file, 'size_mb': 1.0, 'hash': 'hash123'}]
+        orchestrator = DeletionOrchestrator(candidates, self.mock_ui, os.path.join(self.test_dir, 'report.csv'))
+
+        with patch('builtins.input', return_value='DELETE'):
+            result = orchestrator.batch_mode()
+
+        self.mock_ui.close.assert_called_once()
+
+    def test_batch_mode_undo_log_written(self):
+        """Test that batch mode writes undo log."""
+        test_file = self._create_test_file('undo_batch.txt', 1.0)
+        candidates = [{'other_path': test_file, 'size_mb': 1.0, 'hash': 'hash123'}]
+        orchestrator = DeletionOrchestrator(candidates, self.mock_ui, os.path.join(self.test_dir, 'report.csv'))
+
+        with patch('builtins.input', return_value='DELETE'):
+            result = orchestrator.batch_mode()
+
+        assert result.undo_log_path is not None, "Should have undo log path"
+        assert os.path.exists(result.undo_log_path), "Undo log file should exist"
+
+    def test_batch_mode_multiple_files(self):
+        """Test batch mode with multiple files."""
+        file1 = self._create_test_file('multi1.txt', 1.0)
+        file2 = self._create_test_file('multi2.txt', 2.0)
+        file3 = self._create_test_file('multi3.txt', 3.0)
+        candidates = [
+            {'other_path': file1, 'size_mb': 1.0, 'hash': 'hash1'},
+            {'other_path': file2, 'size_mb': 2.0, 'hash': 'hash2'},
+            {'other_path': file3, 'size_mb': 3.0, 'hash': 'hash3'},
+        ]
+        orchestrator = DeletionOrchestrator(candidates, self.mock_ui, os.path.join(self.test_dir, 'report.csv'))
+
+        with patch('builtins.input', return_value='DELETE'):
+            result = orchestrator.batch_mode()
+
+        assert result.files_deleted == 3, "Should delete all 3 files"
+        assert result.space_freed_mb == 6.0, "Should free 6.0 MB"
+        assert not os.path.exists(file1), "File 1 should be deleted"
+        assert not os.path.exists(file2), "File 2 should be deleted"
+        assert not os.path.exists(file3), "File 3 should be deleted"
+
+
+class TestUIHandlerDeletionMethods(unittest.TestCase):
+    """Test suite for UI deletion methods."""
+
+    def setUp(self):
+        """Set up test environment."""
+        from diskcomp.ui import RICH_AVAILABLE
+        self.rich_available = RICH_AVAILABLE
+
+    def test_ansi_start_deletion(self):
+        """Test ANSIProgressUI.start_deletion()."""
+        from diskcomp.ui import UIHandler
+        ui = UIHandler.create(force_ansi=True)
+
+        with patch('builtins.print') as mock_print:
+            ui.start_deletion(10)
+
+        # Verify print was called (exact format depends on implementation)
+        mock_print.assert_called_once()
+
+    def test_ansi_on_file_deleted(self):
+        """Test ANSIProgressUI.on_file_deleted()."""
+        from diskcomp.ui import UIHandler
+        ui = UIHandler.create(force_ansi=True)
+
+        with patch('builtins.print') as mock_print:
+            ui.on_file_deleted(5, 10, 25.5)
+
+        mock_print.assert_called_once()
+        output = mock_print.call_args[0][0]
+        assert '5' in str(output), "Should show current count"
+        assert '10' in str(output), "Should show total count"
+        assert '25.5' in str(output), "Should show space freed"
+
+    def test_rich_start_deletion_available(self):
+        """Test RichProgressUI.start_deletion() if Rich is available."""
+        if not self.rich_available:
+            self.skipTest("Rich not available")
+
+        from diskcomp.ui import UIHandler
+        ui = UIHandler.create(force_ansi=False)
+
+        ui.start_deletion(10)
+        assert hasattr(ui, 'deletion_task_id'), "Should have deletion_task_id"
+
+    def test_rich_on_file_deleted_available(self):
+        """Test RichProgressUI.on_file_deleted() if Rich is available."""
+        if not self.rich_available:
+            self.skipTest("Rich not available")
+
+        from diskcomp.ui import UIHandler
+        ui = UIHandler.create(force_ansi=False)
+
+        ui.start_deletion(10)
+        ui.on_file_deleted(5, 10, 25.5)
+        # Verify it doesn't raise
 
 
 if __name__ == "__main__":

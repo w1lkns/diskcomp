@@ -177,6 +177,37 @@ class RichProgressUI:
         self.console.print(table)
         self.console.print(f"\n[bold]Report saved to:[/bold] {report_path}")
 
+    def start_deletion(self, total_files: int):
+        """
+        Start deletion progress display.
+
+        Args:
+            total_files: Total number of files to delete
+        """
+        if not self.progress_context:
+            self.progress_context = self.progress.__enter__()
+
+        self.deletion_task_id = self.progress_context.add_task(
+            "[cyan]Deleting files...",
+            total=total_files
+        )
+
+    def on_file_deleted(self, current: int, total: int, space_freed_mb: float):
+        """
+        Update deletion progress after deleting a file.
+
+        Args:
+            current: Number of files deleted so far
+            total: Total number of files to delete
+            space_freed_mb: Cumulative space freed in MB
+        """
+        if self.progress_context and hasattr(self, 'deletion_task_id') and self.deletion_task_id is not None:
+            self.progress_context.update(
+                self.deletion_task_id,
+                completed=current,
+                description=f"[cyan]Deleting files... ({space_freed_mb:.2f} MB freed)"
+            )
+
     def close(self):
         """Close the progress context."""
         if self.progress_context:
@@ -302,6 +333,28 @@ class ANSIProgressUI:
         lines.append(f"\nReport saved to: {report_path}")
 
         print("\n".join(lines))
+
+    def start_deletion(self, total_files: int):
+        """
+        Start deletion progress display.
+
+        Args:
+            total_files: Total number of files to delete
+        """
+        print(f"{colored(ARROW, CYAN)} Deleting {total_files} files...")
+
+    def on_file_deleted(self, current: int, total: int, space_freed_mb: float):
+        """
+        Update deletion progress after deleting a file.
+
+        Args:
+            current: Number of files deleted so far
+            total: Total number of files to delete
+            space_freed_mb: Cumulative space freed in MB
+        """
+        bar = progress_bar(current, total)
+        output = f"{bar} | {current}/{total} files | {space_freed_mb:.2f} MB freed"
+        print(output)
 
     def close(self):
         """No-op for ANSI UI (no context to clean up)."""
