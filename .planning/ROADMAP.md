@@ -59,7 +59,7 @@ Plans:
 **Plans**: 3 plans
 
 Plans:
-- [ ] 03-01-PLAN.md — Health Checks (space, filesystem, SMART, read-only detection, benchmarker)
+- [x] 03-01-PLAN.md — Health Checks (space, filesystem, SMART, read-only detection, benchmarker) ✓ COMPLETE
 - [ ] 03-02-PLAN.md — Interactive Drive Picker (enumerate drives, user selection, input validation)
 - [ ] 03-03-PLAN.md — CLI Integration (no-args mode, health checks before scan, user confirmation)
 
@@ -92,7 +92,7 @@ Plans:
 |-------|----------------|--------|-----------|
 | 1. Core Engine + Report | 3/3 | Complete    | 2026-03-22 |
 | 2. Terminal UI | 3/3 | Complete    | 2026-03-22 |
-| 3. Drive Health + Setup | 3/3 | Planned     | 2026-03-22 |
+| 3. Drive Health + Setup | 1/3 | In Progress | 2026-03-22 (01) |
 | 4. Guided Deletion | 0/TBD | Not started | - |
 | 5. Packaging + Distribution | 0/TBD | Not started | - |
 
