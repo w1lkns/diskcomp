@@ -42,8 +42,8 @@ Plans:
 **Plans**: 3 plans
 
 Plans:
-- [ ] 02-01-PLAN.md — ANSI Codes + UI Classes (RichProgressUI, ANSIProgressUI, unit tests)
-- [ ] 02-02-PLAN.md — Callback Integration (scanner/hasher callbacks, CLI wiring, integration tests)
+- [x] 02-01-PLAN.md — ANSI Codes + UI Classes (RichProgressUI, ANSIProgressUI, unit tests) ✓ COMPLETE
+- [x] 02-02-PLAN.md — Callback Integration (scanner/hasher callbacks, CLI wiring, integration tests) ✓ COMPLETE
 - [ ] 02-03-PLAN.md — Verification & Checkpoints (manual testing on Windows, Rich, ANSI, summary)
 
 ### Phase 3: Drive Health + Setup
@@ -86,7 +86,7 @@ Plans:
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Core Engine + Report | 3/3 | Complete    | 2026-03-22 |
-| 2. Terminal UI | 0/3 | Planning    | - |
+| 2. Terminal UI | 2/3 | In Progress | - |
 | 3. Drive Health + Setup | 0/TBD | Not started | - |
 | 4. Guided Deletion | 0/TBD | Not started | - |
 | 5. Packaging + Distribution | 0/TBD | Not started | - |
