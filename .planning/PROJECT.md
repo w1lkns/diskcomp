@@ -12,15 +12,15 @@ The user must always feel in control: no file is ever deleted without explicit c
 
 ### Validated
 
-(None yet — ship to validate)
+- [x] Cross-platform scanner: walk two drives, SHA256 hash files ≥1KB, skip OS noise — *Validated in Phase 1: Core Engine + Report*
+- [x] Report output: CSV with action, paths, sizes, hashes — *Validated in Phase 1: Core Engine + Report*
 
 ### Active
 
-- [ ] Cross-platform scanner: walk two drives, SHA256 hash files ≥1KB, skip OS noise
+- [ ] Terminal UI: live progress bar, per-folder completion ticks, speed + ETA display
 - [ ] Terminal UI: live progress bar, per-folder completion ticks, speed + ETA display
 - [ ] Drive health checks: space summary, filesystem detection, read speed test, SMART data (optional)
 - [ ] Pre-scan questions: ask user which drive to keep, confirm before any destructive step
-- [ ] Report output: CSV with action, paths, sizes, hashes
 - [ ] Guided deletion — Mode A: interactive per-file confirmation with dry-run
 - [ ] Guided deletion — Mode B: full workflow with undo log and abort-at-any-time
 - [ ] User picks deletion mode at runtime (or skips deletion entirely)
@@ -60,4 +60,4 @@ The user must always feel in control: no file is ever deleted without explicit c
 | Undo log over recycle bin | Cross-platform recycle bin APIs are unreliable; log-then-delete is simpler and auditable | — Pending |
 
 ---
-*Last updated: 2026-03-22 after project initialization*
+*Last updated: 2026-03-22 after Phase 1 completion*
