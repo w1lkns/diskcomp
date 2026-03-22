@@ -11,6 +11,8 @@ hash function.
 
 import hashlib
 import os
+import time
+from typing import Callable, List, Optional
 from diskcomp.types import FileRecord, FileNotReadableError
 
 
@@ -103,3 +105,59 @@ class FileHasher:
         except FileNotReadableError as e:
             record.error = str(e)
             return record
+
+    def hash_files(
+        self,
+        records: List[FileRecord],
+        on_file_hashed: Optional[Callable[[int, int, float, int], None]] = None,
+    ) -> List[FileRecord]:
+        """
+        Hash multiple files with per-file progress callback.
+
+        Processes a list of FileRecord objects, computing SHA256 hashes and invoking
+        a callback after each file with progress metrics including speed and ETA.
+
+        Args:
+            records: List of FileRecord objects to hash
+            on_file_hashed: Optional callback(current_index, total, speed_mbps, eta_secs)
+                           called after hashing each file
+
+        Returns:
+            List of FileRecord objects with hash field populated
+        """
+        hashed_records = []
+        start_time = time.time()
+        total_bytes_hashed = 0
+        total_files = len(records)
+
+        for i, record in enumerate(records):
+            # Hash the record
+            record = self.hash_file_record(record)
+
+            # Update total bytes hashed (even if error)
+            if record.error is None:
+                total_bytes_hashed += record.size_bytes
+
+            # Calculate metrics if callback provided
+            if on_file_hashed:
+                elapsed = time.time() - start_time
+
+                # Calculate speed in MB/s
+                if elapsed > 0:
+                    speed_mbps = (total_bytes_hashed / elapsed) / (1024 * 1024)
+                else:
+                    speed_mbps = 0.0
+
+                # Calculate ETA in seconds
+                eta_secs = 0
+                if speed_mbps > 0 and elapsed > 0:
+                    bytes_per_sec = (total_bytes_hashed / elapsed)
+                    remaining_bytes = sum(r.size_bytes for r in records[i + 1:] if r.error is None)
+                    eta_secs = int(remaining_bytes / bytes_per_sec) if bytes_per_sec > 0 else 0
+
+                # Invoke callback with current index (1-based), total, speed, and ETA
+                on_file_hashed(i + 1, total_files, speed_mbps, eta_secs)
+
+            hashed_records.append(record)
+
+        return hashed_records
