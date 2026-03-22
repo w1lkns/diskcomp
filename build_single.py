@@ -37,26 +37,39 @@ STDLIB_MODULES = {
     "contextlib", "io"
 }
 
-def extract_stdlib_imports(content):
-    """Extract all stdlib import lines from module content."""
-    imports = set()
+def collect_stdlib_imports(content, per_module):
+    """
+    Parse stdlib imports from content and accumulate into per_module dict.
 
-    # Match: import X, import X as Y, from X import Y, from X import Y as Z
-    import_pattern = re.compile(r"^(?:from\s+(\w+)|import\s+(\w+))", re.MULTILINE)
+    per_module: {module_name: set_of_names | None}
+      - set_of_names: names from 'from X import a, b'
+      - None: bare 'import X' (no names to merge)
+    """
+    lines = content.split('\n')
+    for line in lines:
+        stripped = line.strip()
 
-    for match in import_pattern.finditer(content):
-        module = match.group(1) or match.group(2)
-        if module in STDLIB_MODULES:
-            # Extract the full import line
-            line_start = content.rfind('\n', 0, match.start()) + 1
-            line_end = content.find('\n', match.end())
-            if line_end == -1:
-                line_end = len(content)
-            full_line = content[line_start:line_end].strip()
-            if full_line:
-                imports.add(full_line)
+        # 'from X import a, b, c'
+        from_match = re.match(r'^from\s+(\w+)\s+import\s+(.+)$', stripped)
+        if from_match:
+            module = from_match.group(1)
+            if module in STDLIB_MODULES:
+                names_str = from_match.group(2)
+                names = [n.strip() for n in names_str.split(',') if n.strip()]
+                existing = per_module.get(module)
+                if existing is None and module in per_module:
+                    # Already registered as bare import — upgrade to named set
+                    per_module[module] = set(names)
+                else:
+                    per_module.setdefault(module, set()).update(names)
+            continue
 
-    return imports
+        # 'import X'
+        import_match = re.match(r'^import\s+(\w+)', stripped)
+        if import_match:
+            module = import_match.group(1)
+            if module in STDLIB_MODULES and module not in per_module:
+                per_module[module] = None  # sentinel: bare import
 
 
 def strip_module_docstring(content):
@@ -109,16 +122,39 @@ def remove_internal_imports(content):
     return '\n'.join(filtered)
 
 
+def remove_stdlib_imports(content):
+    """Remove stdlib import lines (moved to the consolidated header block)."""
+    lines = content.split('\n')
+    filtered = []
+
+    for line in lines:
+        stripped = line.strip()
+        # 'from X import ...' where X is stdlib
+        from_match = re.match(r'^from\s+(\w+)\s+import', stripped)
+        if from_match and from_match.group(1) in STDLIB_MODULES:
+            continue
+        # 'import X' where X is stdlib
+        import_match = re.match(r'^import\s+(\w+)', stripped)
+        if import_match and import_match.group(1) in STDLIB_MODULES:
+            continue
+        filtered.append(line)
+
+    return '\n'.join(filtered)
+
+
 def read_and_process_module(module_path):
-    """Read a module file and extract its code (no docstring, no internal imports)."""
+    """Read a module file and extract its code (no docstring, no imports)."""
     with open(module_path, 'r', encoding='utf-8') as f:
         content = f.read()
 
     # Strip module-level docstring
     content = strip_module_docstring(content)
 
-    # Remove internal diskcomp imports
+    # Remove internal diskcomp imports (inlined by bundler)
     content = remove_internal_imports(content)
+
+    # Remove stdlib imports (hoisted to consolidated header block)
+    content = remove_stdlib_imports(content)
 
     return content.rstrip()  # Remove trailing whitespace
 
@@ -129,8 +165,8 @@ def build_single_file():
     diskcomp_dir = project_root / "diskcomp"
     output_file = project_root / "diskcomp.py"
 
-    # Collect all stdlib imports
-    all_imports = set()
+    # Collect all stdlib imports (accumulated across all modules)
+    per_module_imports = {}  # module_name -> set_of_names | None
     module_codes = []
 
     print("Building diskcomp.py...")
@@ -146,18 +182,23 @@ def build_single_file():
         with open(module_path, 'r', encoding='utf-8') as f:
             content = f.read()
 
-        # Extract imports
-        imports = extract_stdlib_imports(content)
-        all_imports.update(imports)
+        # Accumulate stdlib imports into shared dict
+        collect_stdlib_imports(content, per_module_imports)
 
-        # Process module
+        # Process module (strips imports — they go in header)
         processed = read_and_process_module(module_path)
         module_codes.append((module_name, processed))
 
         print("✓")
 
-    # Sort imports
-    sorted_imports = sorted(all_imports)
+    # Build sorted, consolidated import lines (one per stdlib module)
+    all_import_lines = []
+    for mod, names in sorted(per_module_imports.items()):
+        if names is None:
+            all_import_lines.append(f"import {mod}")
+        else:
+            all_import_lines.append(f"from {mod} import {', '.join(sorted(names))}")
+    sorted_imports = sorted(all_import_lines)
 
     # Write output file
     with open(output_file, 'w', encoding='utf-8') as f:
