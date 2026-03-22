@@ -80,7 +80,7 @@ Plans:
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Core Engine + Report | 3/3 | ✓ Complete | 2026-03-22 (01-01, 01-02, 01-03) |
+| 1. Core Engine + Report | 3/3 | Complete    | 2026-03-22 |
 | 2. Terminal UI | 0/TBD | Not started | - |
 | 3. Drive Health + Setup | 0/TBD | Not started | - |
 | 4. Guided Deletion | 0/TBD | Not started | - |
