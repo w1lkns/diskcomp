@@ -1,0 +1,15 @@
+{
+  "project": "diskcomp",
+  "version": "1.0",
+  "workflow": {
+    "research": false,
+    "auto_approve_plans": false,
+    "commit_after_phase": true
+  },
+  "models": {
+    "planning": "opus",
+    "execution": "sonnet",
+    "review": "opus"
+  },
+  "profile": "quality"
+}
