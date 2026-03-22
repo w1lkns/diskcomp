@@ -41,7 +41,8 @@ def benchmark_read_speed(
         fd, temp_path = tempfile.mkstemp(dir=mount_point, prefix='diskcomp_bench_')
 
         # Write test data
-        with os.fdopen(fd, 'wb', closefd=False) as f:
+        with os.fdopen(fd, 'wb') as f:
+            fd = None  # os.fdopen now owns and will close fd
             bytes_written = 0
             while bytes_written < test_size_bytes:
                 chunk = b'\0' * min(chunk_size_bytes, test_size_bytes - bytes_written)

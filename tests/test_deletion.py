@@ -1,5 +1,6 @@
 """Unit tests for deletion module (UndoEntry, DeletionResult, ReportReader, UndoLog, DeletionOrchestrator)."""
 
+import sys
 import unittest
 import tempfile
 import json
@@ -324,6 +325,7 @@ class TestUndoLog(unittest.TestCase):
         with self.assertRaises(ValueError):
             UndoLog(nonexistent)
 
+    @unittest.skipIf(sys.platform == 'win32', "chmod does not restrict admin on Windows CI runners")
     def test_undo_log_raises_on_unwritable_dir(self):
         """Test that UndoLog raises ValueError for non-writable directory."""
         # Create a read-only directory

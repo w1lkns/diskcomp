@@ -245,8 +245,8 @@ class ReportWriter:
                     os.unlink(tmp_path)
                     raise
 
-            # Atomic rename
-            os.rename(tmp_path, file_path)
+            # Atomic rename (os.replace overwrites on all platforms, including Windows)
+            os.replace(tmp_path, file_path)
         except Exception as e:
             # Clean up temp file if it still exists
             try:
