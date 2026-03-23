@@ -2,13 +2,13 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: Milestone complete
-last_updated: "2026-03-22T23:09:22.850Z"
+status: Phase 06 Complete
+last_updated: "2026-03-23T10:10:00.000Z"
 progress:
-  total_phases: 5
-  completed_phases: 5
-  total_plans: 14
-  completed_plans: 15
+  total_phases: 9
+  completed_phases: 6
+  total_plans: 17
+  completed_plans: 18
 ---
 
 # diskcomp — Project State
@@ -18,7 +18,7 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-22)
 
 **Core value:** The user must always feel in control — no file is ever deleted without explicit confirmation, and every action is reversible via an undo log.
-**Current focus:** Phase 05 — packaging-distribution
+**Current focus:** Phase 06 — performance
 
 ## Current Status
 
@@ -27,6 +27,7 @@ See: .planning/PROJECT.md (updated 2026-03-22)
 - Phase 3: ● Complete (3/3 plans complete)
 - Phase 4: ● Complete (3/3 plans complete)
 - Phase 5: ● Complete (1/1 plans complete)
+- Phase 6: ● Complete (3/3 plans complete)
 
 ## Session Log
 
@@ -166,4 +167,4 @@ See: .planning/PROJECT.md (updated 2026-03-22)
 
 ## Next Action
 
-Phase 5 COMPLETE! All 5 phases now complete with full implementation (179 tests passing). diskcomp is packagable and distributable via pip install or standalone .py download. Ready for GitHub push, CI validation, and optional PyPI publish (D-08 specifies no publish this phase).
+Phase 6 COMPLETE! 187 tests passing (15 skipped). Two-pass size filter implemented: filter_by_size_collision() in hasher.py, CLI pipeline wired in cli.py, "candidates" UI terminology in both Rich and ANSI backends. Benchmark validated (≥5× speedup, opt-in via RUN_SLOW_TESTS=1). Ready for Phase 7 (UX Polish + Single-Drive Mode).

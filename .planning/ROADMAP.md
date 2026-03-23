@@ -11,7 +11,7 @@
 - [x] **Phase 3: Drive Health + Setup** - Drive picker, health checks, SMART, filesystem detection ✓ COMPLETE
 - [x] **Phase 4: Guided Deletion** - Mode A/B deletion, undo log, read-only detection ✓ COMPLETE
 - [x] **Phase 5: Packaging + Distribution** - Single .py, pip, GitHub Actions CI ✓ COMPLETE
-- [ ] **Phase 6: Performance** - Two-pass hashing (size filter → hash only candidates), skip uniques fast
+- [x] **Phase 6: Performance** - Two-pass hashing (size filter → hash only candidates), skip uniques fast ✓ COMPLETE
 - [ ] **Phase 7: UX Polish** - First-run wizard, plain-language results summary, single-drive dedup mode
 - [ ] **Phase 8: Standalone Distribution** - PyInstaller binary, Homebrew formula, GitHub Releases
 - [ ] **Phase 9: Website** - One-page static site with download button, screenshots, Homebrew snippet
@@ -109,7 +109,7 @@ Plans:
 | 3. Drive Health + Setup | 3/3 | Complete    | 2026-03-22 |
 | 4. Guided Deletion | 3/3 | Complete    | 2026-03-22 |
 | 5. Packaging + Distribution | 1/1 | Complete    | 2026-03-23 |
-| 6. Performance | 3/3 | Planned     | — |
+| 6. Performance | 3/3 | Complete    | 2026-03-23 |
 | 7. UX Polish | —   | Planned     | — |
 | 8. Standalone Distribution | —   | Planned     | — |
 
@@ -173,3 +173,4 @@ Plans:
 *v1.0 complete: All 5 phases (15 total plans) executed successfully*
 *v1.1 phases revised: 2026-03-23 — Phase 7 expanded with first-run wizard + plain-language results; Phase 9 replaced Claude Code skill with website; SMART data and Claude skill deferred as low adoption impact*
 *Phase 6 plans created: 2026-03-23 — 3 plans (size filter, testing, UI updates)*
+*Phase 6 complete: 2026-03-23 — 187 tests passing, ≥5× speedup validated*
