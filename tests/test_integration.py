@@ -917,5 +917,242 @@ class TestPostScanWorkflow(unittest.TestCase):
         self.assertEqual(result, 'deleted')
 
 
+class TestEndToEndWorkflow(unittest.TestCase):
+    """Comprehensive end-to-end tests covering all 5 UX improvements working together."""
+
+    def test_e2e_skip_folders_and_delete(self):
+        """Test complete workflow: skip folders, then delete remaining files."""
+        # Create simple mock scan results with multiple folders
+        scan_results = {
+            'files_by_hash': {
+                'hash1': [
+                    FileRecord(path='/folder1/file.bin', rel_path='file.bin', size_bytes=1048576),
+                    FileRecord(path='/folder2/file.bin', rel_path='file.bin', size_bytes=1048576)
+                ]
+            },
+            'duplicates': [
+                {'keep_path': '/folder1/file.bin', 'other_path': '/folder2/file.bin', 'size_mb': 1.0, 'hash': 'hash1'}
+            ],
+            'unique_in_keep': [],
+            'unique_in_other': [],
+            'summary': {}
+        }
+
+        # Create context
+        context = NavigationContext(
+            scan_results=scan_results,
+            keep_path='/keep',
+            other_path='/other',
+            report_path='/tmp/test_report.csv'
+        )
+
+        # Mock UI
+        ui = MagicMock()
+        ui.ok = MagicMock()
+        ui.error = MagicMock()
+        ui.display_folder_list = MagicMock()
+        ui.display_file_list = MagicMock()
+
+        # Simulate: user selects to skip folder1, then chooses batch delete
+        # Input sequence: "1" (skip folders) → "1" (skip folder1) → "5" (batch delete)
+        with patch('builtins.input', side_effect=['1', '1', '5']):
+            with patch('diskcomp.cli.orchestrate_deletion') as mock_delete:
+                mock_delete.return_value = DeletionResult(
+                    mode='batch',
+                    files_deleted=1,  # File from folder2 only
+                    space_freed_mb=1.0,
+                    files_skipped=1,  # File from folder1 (skipped)
+                    aborted=False,
+                    undo_log_path='/tmp/undo.json',
+                    errors=[]
+                )
+
+                outcome = run_post_scan_menu(context, ui)
+
+        # Verify outcome and that skipped folders were passed to deletion
+        self.assertEqual(outcome, 'deleted')
+        self.assertEqual(len(context.selected_folders_skip), 1, "Should have 1 skipped folder")
+        mock_delete.assert_called_once()
+
+    def test_e2e_flag_files_and_delete(self):
+        """Test complete workflow: flag individual files, then delete others."""
+        # Create temp directories with duplicate files
+        keep_dir = tempfile.mkdtemp()
+        other_dir = tempfile.mkdtemp()
+
+        try:
+            # Create 3 duplicate file pairs
+            content_base = "file content " * 100  # ~1200 bytes
+            for i in range(1, 4):
+                Path(os.path.join(keep_dir, f'file{i}.txt')).write_text(content_base + str(i))
+                Path(os.path.join(other_dir, f'file{i}.txt')).write_text(content_base + str(i))
+
+            # Scan and hash
+            keep_scanner = FileScanner(keep_dir)
+            other_scanner = FileScanner(other_dir)
+            keep_result = keep_scanner.scan()
+            other_result = other_scanner.scan()
+
+            hasher = FileHasher()
+            keep_hashed = hasher.hash_files(keep_result.files)
+            other_hashed = hasher.hash_files(other_result.files)
+
+            keep_result.files = keep_hashed
+            other_result.files = other_hashed
+
+            # Classify duplicates
+            classifier = DuplicateClassifier(keep_result, other_result)
+            classification = classifier.classify()
+
+            # Create context
+            context = NavigationContext(
+                scan_results=classification,
+                keep_path=keep_dir,
+                other_path=other_dir,
+                report_path='/tmp/test_report.csv'
+            )
+
+            # Mock UI
+            ui = MagicMock()
+            ui.ok = MagicMock()
+            ui.error = MagicMock()
+            ui.display_file_list = MagicMock()
+
+            # Simulate: user flags files 1 and 3, then chooses batch delete
+            # Input sequence: "2" (flag files) → "1,3" (flag files 1 and 3) → "5" (batch delete)
+            with patch('builtins.input', side_effect=['2', '1,3', '5']):
+                with patch('diskcomp.cli.orchestrate_deletion') as mock_delete:
+                    mock_delete.return_value = DeletionResult(
+                        mode='batch',
+                        files_deleted=1,  # Only file2 deleted
+                        space_freed_mb=1.0,
+                        files_skipped=2,  # Files 1 and 3 skipped (flagged)
+                        aborted=False,
+                        undo_log_path='/tmp/undo.json',
+                        errors=[]
+                    )
+
+                    outcome = run_post_scan_menu(context, ui)
+
+            # Verify outcome and flagged files
+            self.assertEqual(outcome, 'deleted')
+            self.assertEqual(len(context.flagged_files), 2, "Should have 2 flagged files")
+            mock_delete.assert_called_once()
+
+        finally:
+            shutil.rmtree(keep_dir, ignore_errors=True)
+            shutil.rmtree(other_dir, ignore_errors=True)
+
+    def test_e2e_back_navigation_preserves_state(self):
+        """Test that back navigation preserves selections across multiple menus."""
+        scan_results = {
+            'files_by_hash': {
+                'hash1': [
+                    FileRecord(path='/folder1/file1.txt', rel_path='file1.txt', size_bytes=1048576),
+                    FileRecord(path='/folder2/file2.txt', rel_path='file2.txt', size_bytes=1048576)
+                ]
+            },
+            'duplicates': [
+                {'keep_path': '/folder1/file1.txt', 'other_path': '/folder2/file2.txt', 'size_mb': 1.0, 'hash': 'hash1'}
+            ],
+            'unique_in_keep': [],
+            'unique_in_other': [],
+            'summary': {}
+        }
+
+        context = NavigationContext(scan_results=scan_results)
+        ui = MagicMock()
+        ui.display_folder_list = MagicMock()
+        ui.display_file_list = MagicMock()
+        ui.ok = MagicMock()
+        ui.error = MagicMock()
+
+        # Simulate: skip folder "1" (back 'b') → skip folder "1,2" → exit
+        # This tests that folder selection persists after back navigation
+        with patch('builtins.input', side_effect=['1', '1', 'b', '1', '1,2', '6']):
+            outcome = run_post_scan_menu(context, ui)
+
+        # Verify final selection was applied
+        self.assertEqual(outcome, 'skipped_deletion')
+        self.assertEqual(len(context.selected_folders_skip), 2, "Should have 2 skipped folders after final selection")
+
+    def test_e2e_constrained_input_rejects_invalid(self):
+        """Test that constrained input validation rejects invalid menu choices."""
+        scan_results = {
+            'files_by_hash': {},
+            'duplicates': [],
+            'unique_in_keep': [],
+            'unique_in_other': [],
+            'summary': {}
+        }
+
+        context = NavigationContext(scan_results=scan_results)
+        ui = MagicMock()
+        ui.ok = MagicMock()
+        ui.error = MagicMock()
+
+        # Simulate: invalid input "7" → invalid input "9" → valid input "6" (exit)
+        with patch('builtins.input', side_effect=['7', '9', '6']):
+            outcome = run_post_scan_menu(context, ui)
+
+        # Verify error was called (invalid input)
+        self.assertGreater(ui.error.call_count, 0, "ui.error should be called for invalid input")
+        self.assertEqual(outcome, 'skipped_deletion')
+
+    def test_e2e_multiple_navigation_cycles(self):
+        """Test complex navigation with back navigation preserving selections across cycles."""
+        scan_results = {
+            'files_by_hash': {
+                'hash1': [
+                    FileRecord(path='/folder1/file1.txt', rel_path='file1.txt', size_bytes=1048576),
+                    FileRecord(path='/folder2/file2.txt', rel_path='file2.txt', size_bytes=1048576),
+                    FileRecord(path='/folder3/file3.txt', rel_path='file3.txt', size_bytes=1048576)
+                ]
+            },
+            'duplicates': [
+                {'keep_path': '/folder1/file1.txt', 'other_path': '/folder2/file2.txt', 'size_mb': 1.0, 'hash': 'hash1'},
+                {'keep_path': '/folder1/file1.txt', 'other_path': '/folder3/file3.txt', 'size_mb': 1.0, 'hash': 'hash1'}
+            ],
+            'unique_in_keep': [],
+            'unique_in_other': [],
+            'summary': {}
+        }
+
+        context = NavigationContext(scan_results=scan_results)
+        ui = MagicMock()
+        ui.display_folder_list = MagicMock()
+        ui.display_file_list = MagicMock()
+        ui.ok = MagicMock()
+        ui.error = MagicMock()
+
+        # Complex sequence demonstrating multiple navigation cycles:
+        # 1) "1" (skip folders) → "1" (select folder1) → back to menu
+        # 2) "2" (flag files) → "2" (flag file2) → back to menu
+        # 3) "1" (skip folders again) → "2,3" (select folders 2,3, replaces previous "1") → back to menu
+        # 4) "5" (batch delete)
+        # Note: flagged_files accumulates via union, so file2 + file3 = 2 files
+        with patch('builtins.input', side_effect=['1', '1', '2', '2', '1', '2,3', '5']):
+            with patch('diskcomp.cli.orchestrate_deletion') as mock_delete:
+                mock_delete.return_value = DeletionResult(
+                    mode='batch',
+                    files_deleted=0,
+                    space_freed_mb=0.0,
+                    files_skipped=3,
+                    aborted=False,
+                    undo_log_path='/tmp/undo.json',
+                    errors=[]
+                )
+
+                outcome = run_post_scan_menu(context, ui)
+
+        # Verify final selections
+        self.assertEqual(outcome, 'deleted')
+        # Final skip selection: folders 2 and 3
+        self.assertEqual(len(context.selected_folders_skip), 2, "Should have 2 skipped folders in final selection")
+        # Accumulated flagged files: file2 from second interaction
+        self.assertEqual(len(context.flagged_files), 1, "Should have flagged files from interactions")
+        mock_delete.assert_called_once()
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -869,7 +869,7 @@ class TestActionMenuIntegration(unittest.TestCase):
 
     @patch('diskcomp.deletion.DeletionOrchestrator')
     @patch('diskcomp.reporter.ReportReader')
-    @patch('diskcomp.cli.show_action_menu')
+    @patch('diskcomp.cli.run_post_scan_menu')
     @patch('diskcomp.cli.show_next_steps')
     @patch('diskcomp.cli.show_plain_language_summary')
     @patch('diskcomp.cli.ReportWriter')
@@ -925,23 +925,8 @@ class TestActionMenuIntegration(unittest.TestCase):
         mock_reporter.output_path = '/tmp/test-report.csv'
         mock_reporter_class.return_value = mock_reporter
 
-        # Setup action menu to return 'interactive'
-        mock_action_menu.return_value = 'interactive'
-
-        # Setup ReportReader
-        mock_reader.load.return_value = [
-            {'action': 'DELETE_FROM_OTHER', 'other_path': '/path/file1', 'size_mb': 10.0, 'hash': 'abc123', 'keep_path': '/path/keep1'},
-        ]
-
-        # Setup DeletionOrchestrator
-        mock_orch = MagicMock()
-        mock_orchestrator.return_value = mock_orch
-        mock_result = MagicMock()
-        mock_result.files_deleted = 1
-        mock_result.space_freed_mb = 10.0
-        mock_result.errors = []
-        mock_result.undo_log_path = '/tmp/diskcomp-undo-20260323-120000.json'
-        mock_orch.interactive_mode.return_value = mock_result
+        # Setup run_post_scan_menu to return 'deleted'
+        mock_action_menu.return_value = 'deleted'
 
         # Mock input for scan confirmation
         with patch('diskcomp.cli.input', side_effect=['y']):
@@ -951,12 +936,10 @@ class TestActionMenuIntegration(unittest.TestCase):
         # Verify
         self.assertEqual(result, 0)
         mock_action_menu.assert_called_once()
-        mock_orch.interactive_mode.assert_called_once()
-        mock_reader.load.assert_called_once_with('/tmp/test-report.csv')
 
     @patch('diskcomp.deletion.DeletionOrchestrator')
     @patch('diskcomp.reporter.ReportReader')
-    @patch('diskcomp.cli.show_action_menu')
+    @patch('diskcomp.cli.run_post_scan_menu')
     @patch('diskcomp.cli.show_next_steps')
     @patch('diskcomp.cli.show_plain_language_summary')
     @patch('diskcomp.cli.ReportWriter')
@@ -1012,23 +995,8 @@ class TestActionMenuIntegration(unittest.TestCase):
         mock_reporter.output_path = '/tmp/test-report.csv'
         mock_reporter_class.return_value = mock_reporter
 
-        # Setup action menu to return 'batch'
-        mock_action_menu.return_value = 'batch'
-
-        # Setup ReportReader
-        mock_reader.load.return_value = [
-            {'action': 'DELETE_FROM_OTHER', 'other_path': '/path/file1', 'size_mb': 10.0, 'hash': 'abc123', 'keep_path': '/path/keep1'},
-        ]
-
-        # Setup DeletionOrchestrator
-        mock_orch = MagicMock()
-        mock_orchestrator.return_value = mock_orch
-        mock_result = MagicMock()
-        mock_result.files_deleted = 1
-        mock_result.space_freed_mb = 10.0
-        mock_result.errors = []
-        mock_result.undo_log_path = '/tmp/diskcomp-undo-20260323-120000.json'
-        mock_orch.batch_mode.return_value = mock_result
+        # Setup run_post_scan_menu to return 'deleted'
+        mock_action_menu.return_value = 'deleted'
 
         # Mock input for scan confirmation
         with patch('diskcomp.cli.input', side_effect=['y']):
@@ -1038,10 +1006,8 @@ class TestActionMenuIntegration(unittest.TestCase):
         # Verify
         self.assertEqual(result, 0)
         mock_action_menu.assert_called_once()
-        mock_orch.batch_mode.assert_called_once()
-        mock_reader.load.assert_called_once_with('/tmp/test-report.csv')
 
-    @patch('diskcomp.cli.show_action_menu')
+    @patch('diskcomp.cli.run_post_scan_menu')
     @patch('diskcomp.cli.show_next_steps')
     @patch('diskcomp.cli.show_plain_language_summary')
     @patch('diskcomp.cli.ReportWriter')
@@ -1095,8 +1061,8 @@ class TestActionMenuIntegration(unittest.TestCase):
         mock_reporter.output_path = '/tmp/test-report.csv'
         mock_reporter_class.return_value = mock_reporter
 
-        # Setup action menu to return 'exit'
-        mock_action_menu.return_value = 'exit'
+        # Setup run_post_scan_menu to return 'skipped_deletion'
+        mock_action_menu.return_value = 'skipped_deletion'
 
         # Mock input for scan confirmation
         with patch('diskcomp.cli.input', side_effect=['y']):
