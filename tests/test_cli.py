@@ -706,5 +706,100 @@ class TestNextSteps(unittest.TestCase):
         self.assertIn('─' * 60, output)
 
 
+class TestSingleDriveMode(unittest.TestCase):
+    """Test suite for --single flag and single-drive mode."""
+
+    def test_parse_args_single_flag(self):
+        """Test parse_args with --single flag."""
+        args = parse_args(['--single', '/mnt/test'])
+        self.assertEqual(args.single, '/mnt/test')
+
+    def test_parse_args_single_with_min_size(self):
+        """Test parse_args with --single and --min-size."""
+        args = parse_args(['--single', '/mnt/test', '--min-size', '5MB'])
+        self.assertEqual(args.single, '/mnt/test')
+        self.assertEqual(args.min_size, '5MB')
+
+    def test_parse_args_single_with_format_json(self):
+        """Test parse_args with --single and --format json."""
+        args = parse_args(['--single', '/mnt/test', '--format', 'json'])
+        self.assertEqual(args.single, '/mnt/test')
+        self.assertEqual(args.format, 'json')
+
+    @patch('diskcomp.cli.show_next_steps')
+    @patch('diskcomp.cli.show_plain_language_summary')
+    @patch('diskcomp.cli.ReportWriter')
+    @patch('diskcomp.hasher.group_by_hash_single_drive')
+    @patch('diskcomp.hasher.group_by_size_single_drive')
+    @patch('diskcomp.cli.FileHasher')
+    @patch('diskcomp.cli.FileScanner')
+    @patch('diskcomp.cli.os.path.isdir')
+    @patch('diskcomp.cli.UIHandler')
+    def test_main_single_drive_flag(
+            self, mock_ui_factory, mock_isdir,
+            mock_scanner_class, mock_hasher_class, mock_size_filter,
+            mock_hash_grouper, mock_reporter_class, mock_summary,
+            mock_next_steps):
+        """Test main() with --single flag."""
+        # Setup mocks
+        mock_ui = MagicMock()
+        mock_ui_factory.create.return_value = mock_ui
+
+        mock_isdir.return_value = True
+
+        # Mock scanner
+        mock_scanner = MagicMock()
+        mock_scanner_class.return_value = mock_scanner
+        mock_scan_result = MagicMock()
+        mock_scan_result.files = []
+        mock_scan_result.file_count = 0
+        mock_scanner.scan.return_value = mock_scan_result
+
+        # Mock size filter
+        mock_size_filter.return_value = ([], {'total_scanned': 0, 'candidate_count': 0, 'pct_skipped': 100})
+
+        # Mock hash grouper
+        mock_hash_grouper.return_value = {
+            'duplicates': [],
+            'unique': [],
+            'summary': {
+                'duplicate_count': 0,
+                'duplicate_size_mb': 0,
+                'unique_in_other_count': 0,
+                'unique_in_other_size_mb': 0,
+            }
+        }
+
+        # Mock reporter
+        mock_reporter = MagicMock()
+        mock_reporter.output_path = '/tmp/test-report.csv'
+        mock_reporter_class.return_value = mock_reporter
+
+        # Run main with --single flag
+        args = parse_args(['--single', '/tmp/test_dir'])
+        result = main(args)
+
+        # Should complete successfully
+        self.assertEqual(result, 0)
+
+        # UI should be closed
+        mock_ui.close.assert_called_once()
+
+        # Scanner should be called
+        mock_scanner_class.assert_called_once()
+
+        # Report should be written
+        mock_reporter.write_csv.assert_called_once()
+
+    def test_main_single_drive_invalid_path(self):
+        """Test main() with --single flag and invalid path."""
+        with patch('diskcomp.cli.os.path.isdir', return_value=False):
+            args = parse_args(['--single', '/nonexistent/path'])
+            result = main(args)
+
+            # Should fail with error code 1
+            self.assertEqual(result, 1)
+
+
 if __name__ == '__main__':
     unittest.main()

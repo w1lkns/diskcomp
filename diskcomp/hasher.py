@@ -163,6 +163,140 @@ class FileHasher:
         return hashed_records
 
 
+def group_by_hash_single_drive(
+    records: List[FileRecord],
+    on_file_hashed: Optional[Callable[[int, int, float, int], None]] = None,
+) -> dict:
+    """
+    Group records by hash within a single drive, identifying duplicates.
+
+    This function:
+    1. Groups all hashed FileRecords by SHA256 hash
+    2. For each hash that appears 2+ times, identifies duplicates
+    3. Keep rule (D-01): alphabetically first path per group is the keeper
+    4. All other paths are marked DELETE
+
+    Args:
+        records: List of FileRecord objects (already hashed)
+        on_file_hashed: Optional callback (unused here, for API consistency)
+
+    Returns:
+        Dict with structure:
+        {
+            'duplicates': [
+                {
+                    'action': 'DELETE_FROM_OTHER',
+                    'keep_path': str (alphabetically first path in group),
+                    'other_path': str (duplicate to delete),
+                    'size_mb': float,
+                    'hash': str,
+                },
+                ...
+            ],
+            'unique': [
+                {
+                    'action': 'UNIQUE_IN_OTHER',
+                    'keep_path': None,
+                    'other_path': str (only copy of this file),
+                    'size_mb': float,
+                    'hash': str,
+                },
+                ...
+            ],
+            'summary': {
+                'duplicate_count': int,
+                'duplicate_size_mb': float,
+                'unique_in_other_count': int,
+                'unique_in_other_size_mb': float,
+            }
+        }
+    """
+    # Group records by hash
+    hash_groups = {}
+    for record in records:
+        if record.hash:
+            if record.hash not in hash_groups:
+                hash_groups[record.hash] = []
+            hash_groups[record.hash].append(record)
+
+    duplicates = []
+    uniques = []
+    duplicate_size_bytes = 0
+    unique_size_bytes = 0
+
+    for hash_val, records_in_group in hash_groups.items():
+        if len(records_in_group) > 1:
+            # Duplicates: sort by path, keep first (alphabetically)
+            sorted_records = sorted(records_in_group, key=lambda r: r.path)
+            keep_rec = sorted_records[0]
+
+            # Mark all others as DELETE
+            for other_rec in sorted_records[1:]:
+                duplicates.append({
+                    'action': 'DELETE_FROM_OTHER',
+                    'keep_path': keep_rec.path,
+                    'other_path': other_rec.path,
+                    'size_mb': round(other_rec.size_bytes / (1024 ** 2), 2),
+                    'hash': hash_val,
+                })
+                duplicate_size_bytes += other_rec.size_bytes
+        else:
+            # Unique: only one copy
+            rec = records_in_group[0]
+            uniques.append({
+                'action': 'UNIQUE_IN_OTHER',
+                'keep_path': None,
+                'other_path': rec.path,
+                'size_mb': round(rec.size_bytes / (1024 ** 2), 2),
+                'hash': hash_val,
+            })
+            unique_size_bytes += rec.size_bytes
+
+    return {
+        'duplicates': duplicates,
+        'unique': uniques,
+        'summary': {
+            'duplicate_count': len(duplicates),
+            'duplicate_size_mb': round(duplicate_size_bytes / (1024 ** 2), 2),
+            'unique_in_other_count': len(uniques),
+            'unique_in_other_size_mb': round(unique_size_bytes / (1024 ** 2), 2),
+        }
+    }
+
+
+def group_by_size_single_drive(records: List[FileRecord]) -> tuple:
+    """
+    Filter single-drive records by size collision (two-pass optimization, D-03).
+
+    Within a single drive, skip sizes that appear only once (cannot be duplicates).
+    Hash only files whose size appears 2+ times on the same drive.
+
+    Args:
+        records: List of FileRecord objects from scanner
+
+    Returns:
+        Tuple of (candidates, stats) where:
+        - candidates: FileRecords with size appearing 2+ times
+        - stats: dict with total_scanned, candidate_count, pct_skipped
+    """
+    # Count occurrences of each size
+    size_counts = {}
+    for record in records:
+        size = record.size_bytes
+        size_counts[size] = size_counts.get(size, 0) + 1
+
+    # Filter: keep only files whose size appears 2+ times
+    candidates = [r for r in records if size_counts[r.size_bytes] >= 2]
+
+    total_scanned = len(records)
+    candidate_count = len(candidates)
+    pct_skipped = 0
+    if total_scanned > 0:
+        pct_skipped = (total_scanned - candidate_count) * 100 // total_scanned
+
+    return (candidates, {'total_scanned': total_scanned, 'candidate_count': candidate_count, 'pct_skipped': pct_skipped})
+
+
 def filter_by_size_collision(
     keep_records: List[FileRecord],
     other_records: List[FileRecord],

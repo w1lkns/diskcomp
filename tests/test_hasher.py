@@ -5,7 +5,7 @@ import tempfile
 import os
 from pathlib import Path
 
-from diskcomp.hasher import FileHasher, filter_by_size_collision
+from diskcomp.hasher import FileHasher, filter_by_size_collision, group_by_hash_single_drive, group_by_size_single_drive
 from diskcomp.types import FileNotReadableError, FileRecord
 
 
@@ -215,6 +215,174 @@ class TestFileHasher(unittest.TestCase):
         self.assertEqual(filtered_other[0].path, "/other/file1")
         self.assertEqual(filtered_other[0].hash, "def456")
         self.assertEqual(filtered_other[0].error, "some error")
+
+
+class TestGroupByHashSingleDrive(unittest.TestCase):
+    """Test suite for group_by_hash_single_drive function."""
+
+    @staticmethod
+    def _make_record(path, size_bytes, hash=None):
+        """Helper to create a FileRecord."""
+        return FileRecord(
+            path=path,
+            rel_path=os.path.basename(path),
+            size_bytes=size_bytes,
+            hash=hash,
+            mtime=0.0,
+            error=None
+        )
+
+    def test_group_by_hash_single_drive_no_duplicates(self):
+        """Test with all unique hashes (no duplicates)."""
+        records = [
+            self._make_record("/drive/file1", 100, "hash1"),
+            self._make_record("/drive/file2", 200, "hash2"),
+            self._make_record("/drive/file3", 300, "hash3"),
+        ]
+
+        result = group_by_hash_single_drive(records)
+
+        # All files should be marked as unique
+        self.assertEqual(len(result['duplicates']), 0)
+        self.assertEqual(len(result['unique']), 3)
+        self.assertEqual(result['summary']['duplicate_count'], 0)
+        self.assertEqual(result['summary']['unique_in_other_count'], 3)
+
+    def test_group_by_hash_single_drive_with_duplicates(self):
+        """Test with duplicate files (same hash)."""
+        records = [
+            self._make_record("/drive/a/dup", 100, "hash1"),
+            self._make_record("/drive/b/dup", 100, "hash1"),
+            self._make_record("/drive/c/dup", 100, "hash1"),
+        ]
+
+        result = group_by_hash_single_drive(records)
+
+        # Should have 2 duplicates (3-1 = 2) and 0 uniques
+        self.assertEqual(len(result['duplicates']), 2)
+        self.assertEqual(len(result['unique']), 0)
+        self.assertEqual(result['summary']['duplicate_count'], 2)
+        self.assertEqual(result['summary']['unique_in_other_count'], 0)
+
+    def test_group_by_hash_single_drive_keeps_alphabetically_first(self):
+        """Test that alphabetically first path is kept, others marked DELETE."""
+        records = [
+            self._make_record("/drive/z/file", 100, "hash1"),
+            self._make_record("/drive/a/file", 100, "hash1"),
+            self._make_record("/drive/m/file", 100, "hash1"),
+        ]
+
+        result = group_by_hash_single_drive(records)
+
+        # /drive/a/file should be kept (alphabetically first)
+        duplicates = result['duplicates']
+        self.assertEqual(len(duplicates), 2)
+
+        # Both duplicates should have keep_path pointing to /drive/a/file
+        for dup in duplicates:
+            self.assertEqual(dup['keep_path'], '/drive/a/file')
+            self.assertIn(dup['other_path'], ['/drive/z/file', '/drive/m/file'])
+
+    def test_group_by_hash_single_drive_mixed(self):
+        """Test with mix of duplicates and unique files."""
+        records = [
+            self._make_record("/drive/file1", 100, "hash1"),
+            self._make_record("/drive/file2", 100, "hash1"),
+            self._make_record("/drive/file3", 200, "hash2"),
+            self._make_record("/drive/file4", 300, "hash3"),
+        ]
+
+        result = group_by_hash_single_drive(records)
+
+        # 1 duplicate (hash1 has 2 copies), 2 unique (hash2, hash3)
+        self.assertEqual(len(result['duplicates']), 1)
+        self.assertEqual(len(result['unique']), 2)
+
+    def test_group_by_hash_single_drive_sizes(self):
+        """Test that size_mb is calculated correctly."""
+        records = [
+            self._make_record("/drive/file1", 1024*1024, "hash1"),  # 1 MB
+            self._make_record("/drive/file2", 1024*1024, "hash1"),  # 1 MB duplicate
+        ]
+
+        result = group_by_hash_single_drive(records)
+
+        duplicates = result['duplicates']
+        self.assertEqual(len(duplicates), 1)
+        self.assertAlmostEqual(duplicates[0]['size_mb'], 1.0, places=2)
+        self.assertAlmostEqual(result['summary']['duplicate_size_mb'], 1.0, places=2)
+
+
+class TestGroupBySizeSingleDrive(unittest.TestCase):
+    """Test suite for group_by_size_single_drive function."""
+
+    @staticmethod
+    def _make_record(path, size_bytes):
+        """Helper to create a FileRecord."""
+        return FileRecord(
+            path=path,
+            rel_path=os.path.basename(path),
+            size_bytes=size_bytes,
+            hash=None,
+            mtime=0.0,
+            error=None
+        )
+
+    def test_group_by_size_single_drive_filters_singletons(self):
+        """Test that sizes appearing once are skipped."""
+        records = [
+            self._make_record("/drive/file1", 100),  # Unique size
+            self._make_record("/drive/file2", 200),  # Size appears 2x
+            self._make_record("/drive/file3", 200),  # Size appears 2x
+            self._make_record("/drive/file4", 300),  # Unique size
+        ]
+
+        candidates, stats = group_by_size_single_drive(records)
+
+        # Only 2 candidates (the two 200-byte files)
+        self.assertEqual(len(candidates), 2)
+        self.assertEqual(stats['total_scanned'], 4)
+        self.assertEqual(stats['candidate_count'], 2)
+        self.assertEqual(stats['pct_skipped'], 50)
+
+    def test_group_by_size_single_drive_no_duplicates(self):
+        """Test with all unique sizes."""
+        records = [
+            self._make_record("/drive/file1", 100),
+            self._make_record("/drive/file2", 200),
+            self._make_record("/drive/file3", 300),
+        ]
+
+        candidates, stats = group_by_size_single_drive(records)
+
+        # No candidates (no sizes appear 2+ times)
+        self.assertEqual(len(candidates), 0)
+        self.assertEqual(stats['candidate_count'], 0)
+        self.assertEqual(stats['pct_skipped'], 100)
+
+    def test_group_by_size_single_drive_all_same_size(self):
+        """Test with all files same size."""
+        records = [
+            self._make_record("/drive/file1", 100),
+            self._make_record("/drive/file2", 100),
+            self._make_record("/drive/file3", 100),
+        ]
+
+        candidates, stats = group_by_size_single_drive(records)
+
+        # All 3 should be candidates
+        self.assertEqual(len(candidates), 3)
+        self.assertEqual(stats['pct_skipped'], 0)
+
+    def test_group_by_size_single_drive_empty(self):
+        """Test with empty input."""
+        records = []
+
+        candidates, stats = group_by_size_single_drive(records)
+
+        self.assertEqual(len(candidates), 0)
+        self.assertEqual(stats['total_scanned'], 0)
+        self.assertEqual(stats['pct_skipped'], 0)
 
 
 if __name__ == "__main__":

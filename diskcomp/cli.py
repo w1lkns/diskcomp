@@ -692,7 +692,6 @@ def main(args=None):
 
             # Two-pass optimization: size filter then hash (D-03)
             candidates, size_stats = group_by_size_single_drive(scan_result.files)
-            ui.update_status(f"Hashing {size_stats['candidate_count']} size-collision candidates...")
 
             # Hash candidates
             hasher = FileHasher()
