@@ -12,9 +12,9 @@
 - [x] **Phase 4: Guided Deletion** - Mode A/B deletion, undo log, read-only detection ✓ COMPLETE
 - [x] **Phase 5: Packaging + Distribution** - Single .py, pip, GitHub Actions CI ✓ COMPLETE
 - [ ] **Phase 6: Performance** - Two-pass hashing (size filter → hash only candidates), skip uniques fast
-- [ ] **Phase 7: UX Polish** - Pre-deletion summary, cleaner flag names, within-drive dedup mode
+- [ ] **Phase 7: UX Polish** - First-run wizard, plain-language results summary, single-drive dedup mode
 - [ ] **Phase 8: Standalone Distribution** - PyInstaller binary, Homebrew formula, GitHub Releases
-- [ ] **Phase 9: Claude Code Skill** - Natural language drive management from Claude Code conversations
+- [ ] **Phase 9: Website** - One-page static site with download button, screenshots, Homebrew snippet
 
 ## Phase Details
 
@@ -126,14 +126,15 @@ Plans:
 ### Phase 7: UX Polish + Single-Drive Mode
 **Goal**: First-time users understand the tool immediately; single-drive users get the same safe dedup experience without needing a second drive.
 **Depends on**: Phase 6
-**Motivation**: No summary before deletion; the most common use case ("my drive is full") requires two drives today.
+**Motivation**: No summary before deletion; the most common use case ("my drive is full") requires two drives today. Non-technical users need a wizard-style entry point, not a flag-heavy CLI.
 **Success Criteria**:
-  1. Pre-deletion summary shown: total duplicates found, total MB recoverable, before any prompts
-  2. `--single <path>` mode: find files that appear more than once on the same drive, then hand off to the existing guided deletion workflow (same safety guarantees, same undo log)
-  3. Interactive no-args mode offers a third option alongside two-drive compare: "Clean up a single drive"
-  4. Post-scan "next steps" block printed after every scan: exact commands to review, delete, and undo — using the actual report filename generated
-  5. NTFS-on-macOS limitation called out explicitly in health check output and README
-  6. `--keep` / `--other` flag names retained as-is — aliases (`--drive-a` / `--drive-b`) dropped; ambiguous names create deletion safety risk
+  1. First-run wizard: no-args mode greets user with a numbered menu (Compare two drives / Clean up a single drive / Help) — feels like an app, not a script
+  2. Post-scan results summary shown in plain language: "Found 847 duplicates. You could free 23.4 GB from Drive B. Ready to review?" — before any CSV mention
+  3. Pre-deletion summary shown: total duplicates found, total MB recoverable, before any prompts
+  4. `--single <path>` mode: find files that appear more than once on the same drive, then hand off to the existing guided deletion workflow (same safety guarantees, same undo log)
+  5. Post-scan "next steps" block printed after every scan: exact commands to review, delete, and undo — using the actual report filename generated
+  6. NTFS-on-macOS limitation called out explicitly in health check output and README
+  7. `--keep` / `--other` flag names retained as-is — aliases dropped; ambiguous names create deletion safety risk
 
 ### Phase 8: Standalone Distribution
 **Goal**: Non-developers can download and run diskcomp with zero setup. No Python required.
@@ -145,6 +146,17 @@ Plans:
   3. Homebrew formula in a `homebrew-diskcomp` tap: `brew tap w1lkns/diskcomp` then `brew install diskcomp`
   4. README updated with binary download and `brew install` as primary install paths
 
+### Phase 9: Website
+**Goal**: One page that explains what diskcomp does and lets anyone download it in under 30 seconds.
+**Depends on**: Phase 8
+**Motivation**: Word of mouth doesn't work without a URL. Non-technical users can't be sent to a GitHub repo. A single page with a download button is the difference between shareable and not.
+**Success Criteria**:
+  1. Single-page static site: one-sentence headline, what it does, who it's for
+  2. Download button links to latest GitHub Release binary for macOS (primary), Linux, Windows
+  3. Two screenshots or a short terminal recording showing a real scan + deletion workflow
+  4. Homebrew install snippet for technical macOS users
+  5. Hosted and live (GitHub Pages or equivalent — zero cost)
+
 ---
 *Roadmap created: 2026-03-22*
 *Phase 4 plans created: 2026-03-22*
@@ -152,15 +164,4 @@ Plans:
 *Phase 5 plan created: 2026-03-22*
 *Phase 5 complete: 2026-03-23 00:01*
 *v1.0 complete: All 5 phases (15 total plans) executed successfully*
-*v1.1 phases added: 2026-03-23 (Phase 6: Performance, Phase 7: UX Polish, Phase 8: Standalone Distribution, Phase 9: Claude Code Skill)*
-
-### Phase 9: Claude Code Skill
-**Goal**: diskcomp usable from a Claude Code conversation with no flags or docs required.
-**Depends on**: Phase 8
-**Motivation**: Natural language is a lower barrier than CLI flags for most users. An agent skill also positions diskcomp as a reference implementation for AI-friendly CLI tools.
-**Success Criteria**:
-  1. `/diskcomp` skill installed in Claude Code — triggers on "compare my drives", "clean up my downloads", etc.
-  2. Skill handles conversational setup: which drives, which to keep, confirms before any deletion
-  3. Dry-run output surfaced in conversation before user approves deletion
-  4. Undo available as a follow-up: "undo that" maps to `--undo` with the last report
-  5. Works via the standalone binary (Phase 8) — no Python requirement for skill users
+*v1.1 phases revised: 2026-03-23 — Phase 7 expanded with first-run wizard + plain-language results; Phase 9 replaced Claude Code skill with website; SMART data and Claude skill deferred as low adoption impact*
