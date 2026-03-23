@@ -349,7 +349,7 @@ class TestCLIUI(unittest.TestCase):
             mock_ui = MagicMock()
             mock_create.return_value = mock_ui
 
-            with patch('diskcomp.cli.input', return_value='y'):
+            with patch('diskcomp.cli.input', side_effect=['y', '3']):
                 # Run CLI without dry-run to trigger hashing
                 args = [
                     '--keep', self.keep_dir,
@@ -370,7 +370,7 @@ class TestCLIUI(unittest.TestCase):
             mock_ui = MagicMock()
             mock_create.return_value = mock_ui
 
-            with patch('diskcomp.cli.input', return_value='y'):
+            with patch('diskcomp.cli.input', side_effect=['y', '3']):
                 # Run CLI without dry-run to trigger hashing
                 args = [
                     '--keep', self.keep_dir,
@@ -391,7 +391,7 @@ class TestCLIUI(unittest.TestCase):
             mock_ui = MagicMock()
             mock_create.return_value = mock_ui
 
-            with patch('diskcomp.cli.input', return_value='y'):
+            with patch('diskcomp.cli.input', side_effect=['y', '3']):
                 # Run CLI without dry-run
                 args = [
                     '--keep', self.keep_dir,
