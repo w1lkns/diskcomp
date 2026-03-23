@@ -7,9 +7,10 @@ from io import StringIO
 from diskcomp.cli import (
     parse_args, main, display_health_checks, _display_health_result,
     parse_size_value, show_first_run_menu, show_help_guide,
-    show_plain_language_summary, show_next_steps, show_action_menu
+    show_plain_language_summary, show_next_steps, show_action_menu,
+    prompt_confirm
 )
-from diskcomp.types import HealthCheckResult
+from diskcomp.types import HealthCheckResult, NavigationContext
 
 
 class TestCLIArgumentParsing(unittest.TestCase):
@@ -1170,6 +1171,111 @@ class TestActionMenuIntegration(unittest.TestCase):
         self.assertEqual(result, 0)
         # Action menu should NOT have been called because duplicate_count == 0
         mock_action_menu.assert_not_called()
+
+
+class TestPromptConfirm(unittest.TestCase):
+    """Test suite for prompt_confirm() input validation helper."""
+
+    def setUp(self):
+        """Set up test fixtures."""
+        self.mock_ui = MagicMock()
+
+    @patch('builtins.input', return_value='y')
+    def test_prompt_confirm_valid_single_key(self, mock_input):
+        """Test prompt_confirm returns valid key immediately."""
+        result = prompt_confirm("Delete?", ['y', 'n'], self.mock_ui)
+        self.assertEqual(result, 'y')
+        mock_input.assert_called_once_with("Delete?")
+        self.mock_ui.error.assert_not_called()
+
+    @patch('builtins.input', side_effect=['x', 'y'])
+    def test_prompt_confirm_invalid_then_valid(self, mock_input):
+        """Test prompt_confirm loops on invalid input, then returns valid key."""
+        result = prompt_confirm("Delete?", ['y', 'n'], self.mock_ui)
+        self.assertEqual(result, 'y')
+        # Should be called twice: once for 'x', once for 'y'
+        self.assertEqual(mock_input.call_count, 2)
+        # ui.error should be called once (for 'x')
+        self.mock_ui.error.assert_called_once()
+
+    @patch('builtins.input', side_effect=['', 'n'])
+    def test_prompt_confirm_empty_then_valid(self, mock_input):
+        """Test prompt_confirm loops on empty input, then returns valid key."""
+        result = prompt_confirm("Skip?", ['y', 'n', 'skip'], self.mock_ui)
+        self.assertEqual(result, 'n')
+        # Should be called twice: once for '', once for 'n'
+        self.assertEqual(mock_input.call_count, 2)
+        # ui.error should be called once (for '')
+        self.mock_ui.error.assert_called_once()
+
+    @patch('builtins.input', side_effect=['skip', 'skip'])
+    def test_prompt_confirm_multi_char_keys(self, mock_input):
+        """Test prompt_confirm works with multi-character valid keys."""
+        result = prompt_confirm("Choice?", ['y', 'n', 'skip', 'abort'], self.mock_ui)
+        self.assertEqual(result, 'skip')
+        # Should return on first valid key match
+        self.assertEqual(mock_input.call_count, 1)
+
+
+class TestNavigationContext(unittest.TestCase):
+    """Test suite for NavigationContext @dataclass."""
+
+    def test_navigation_context_initialization_default(self):
+        """Test NavigationContext initializes with default values."""
+        ctx = NavigationContext()
+        self.assertIsNone(ctx.scan_results)
+        self.assertIsNone(ctx.keep_path)
+        self.assertIsNone(ctx.other_path)
+        self.assertEqual(ctx.selected_folders_skip, set())
+        self.assertEqual(ctx.flagged_files, set())
+        self.assertIsNone(ctx.report_path)
+
+    def test_navigation_context_set_paths(self):
+        """Test NavigationContext can set path values."""
+        ctx = NavigationContext(
+            keep_path='/mnt/keep',
+            other_path='/mnt/other',
+            report_path='/tmp/report.csv'
+        )
+        self.assertEqual(ctx.keep_path, '/mnt/keep')
+        self.assertEqual(ctx.other_path, '/mnt/other')
+        self.assertEqual(ctx.report_path, '/tmp/report.csv')
+
+    def test_navigation_context_set_sets(self):
+        """Test NavigationContext can set folder and file sets."""
+        folders_to_skip = {'/mnt/keep/cache', '/mnt/keep/temp'}
+        flagged_files = {'/mnt/other/file1.txt', '/mnt/other/file2.txt'}
+
+        ctx = NavigationContext(
+            selected_folders_skip=folders_to_skip,
+            flagged_files=flagged_files
+        )
+
+        self.assertEqual(ctx.selected_folders_skip, folders_to_skip)
+        self.assertEqual(ctx.flagged_files, flagged_files)
+
+    def test_navigation_context_set_scan_results(self):
+        """Test NavigationContext can store classification dict."""
+        classification = {
+            'duplicates': [],
+            'unique_in_keep': [],
+            'unique_in_other': [],
+            'summary': {}
+        }
+
+        ctx = NavigationContext(scan_results=classification)
+        self.assertEqual(ctx.scan_results, classification)
+
+    def test_navigation_context_independent_sets(self):
+        """Test NavigationContext instances have independent set objects."""
+        ctx1 = NavigationContext()
+        ctx2 = NavigationContext()
+
+        ctx1.selected_folders_skip.add('/path/a')
+        ctx2.selected_folders_skip.add('/path/b')
+
+        self.assertEqual(ctx1.selected_folders_skip, {'/path/a'})
+        self.assertEqual(ctx2.selected_folders_skip, {'/path/b'})
 
 
 if __name__ == '__main__':
