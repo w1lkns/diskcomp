@@ -281,6 +281,7 @@ class ReportWriter:
         target_path = path or self.output_path
         if not target_path.endswith('.csv'):
             target_path += '.csv'
+        self.output_path = target_path
 
         def writer_func(f):
             csv_writer = csv.DictWriter(
@@ -320,6 +321,7 @@ class ReportWriter:
         target_path = path or self.output_path
         if not target_path.endswith('.json'):
             target_path += '.json'
+        self.output_path = target_path
 
         def writer_func(f):
             json.dump(classification, f, indent=2)
