@@ -7,6 +7,14 @@ Compare two drives and find duplicate files. Zero dependencies, cross-platform, 
 
 ## Quick Install
 
+**pipx** (recommended — handles PATH automatically):
+```bash
+pipx install diskcomp
+diskcomp --help
+```
+
+> Don't have pipx? `brew install pipx` on macOS, `pip install pipx` elsewhere.
+
 **pip install** (once published to PyPI):
 ```bash
 pip install diskcomp
