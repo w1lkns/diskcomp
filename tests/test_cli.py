@@ -4,7 +4,10 @@ import unittest
 from unittest.mock import patch, MagicMock, call
 from io import StringIO
 
-from diskcomp.cli import parse_args, main, display_health_checks, _display_health_result, parse_size_value
+from diskcomp.cli import (
+    parse_args, main, display_health_checks, _display_health_result,
+    parse_size_value, show_first_run_menu, show_help_guide
+)
 from diskcomp.types import HealthCheckResult
 
 
@@ -62,6 +65,7 @@ class TestCLIArgumentParsing(unittest.TestCase):
 class TestInteractiveMode(unittest.TestCase):
     """Test suite for interactive mode in main()."""
 
+    @patch('diskcomp.cli.show_first_run_menu')
     @patch('diskcomp.cli.input')
     @patch('diskcomp.cli.ReportWriter')
     @patch('diskcomp.cli.DuplicateClassifier')
@@ -77,17 +81,18 @@ class TestInteractiveMode(unittest.TestCase):
             self, mock_ui_factory, mock_picker, mock_isdir, mock_access,
             mock_health, mock_display_health, mock_scanner_class,
             mock_hasher_class, mock_classifier_class, mock_reporter_class,
-            mock_input):
+            mock_input, mock_menu):
         """Test that main() with no args calls interactive_drive_picker()."""
         # Setup mocks
         mock_ui = MagicMock()
         mock_ui_factory.create.return_value = mock_ui
 
+        mock_menu.return_value = 'two_drives'  # Select two-drives from menu
         mock_picker.return_value = {'keep': '/mnt/keep', 'other': '/mnt/other'}
         mock_isdir.return_value = True
         mock_access.return_value = True
         mock_display_health.return_value = True
-        mock_input.return_value = 'n'  # User cancels
+        mock_input.return_value = 'n'  # User cancels at scan confirmation
 
         # Create args with None values
         args = parse_args([])
@@ -101,6 +106,7 @@ class TestInteractiveMode(unittest.TestCase):
         self.assertEqual(result, 0)
         mock_picker.assert_called_once()
 
+    @patch('diskcomp.cli.show_first_run_menu')
     @patch('diskcomp.cli.input')
     @patch('diskcomp.cli.ReportWriter')
     @patch('diskcomp.cli.DuplicateClassifier')
@@ -116,7 +122,7 @@ class TestInteractiveMode(unittest.TestCase):
             self, mock_ui_factory, mock_picker, mock_isdir, mock_access,
             mock_health, mock_display_health, mock_scanner_class,
             mock_hasher_class, mock_classifier_class, mock_reporter_class,
-            mock_input):
+            mock_input, mock_menu):
         """Test that main() with --keep/--other skips interactive mode."""
         # Setup mocks
         mock_ui = MagicMock()
@@ -124,7 +130,7 @@ class TestInteractiveMode(unittest.TestCase):
         mock_isdir.return_value = True
         mock_access.return_value = True
         mock_display_health.return_value = True
-        mock_input.return_value = 'n'  # User cancels
+        mock_input.return_value = 'n'  # User cancels at scan confirmation
 
         # Create args with paths
         args = parse_args(['--keep', '/mnt/keep', '--other', '/mnt/other'])
@@ -133,9 +139,12 @@ class TestInteractiveMode(unittest.TestCase):
         result = main(args)
 
         # Verify interactive picker was NOT called
+        # (menu should not be shown because we have explicit paths)
         self.assertEqual(result, 0)
         mock_picker.assert_not_called()
+        mock_menu.assert_not_called()
 
+    @patch('diskcomp.cli.show_first_run_menu')
     @patch('diskcomp.cli.input')
     @patch('diskcomp.cli.ReportWriter')
     @patch('diskcomp.cli.DuplicateClassifier')
@@ -149,11 +158,12 @@ class TestInteractiveMode(unittest.TestCase):
     def test_main_interactive_picker_fails(
             self, mock_ui_factory, mock_picker, mock_isdir, mock_access,
             mock_display_health, mock_scanner_class, mock_hasher_class,
-            mock_classifier_class, mock_reporter_class, mock_input):
+            mock_classifier_class, mock_reporter_class, mock_input, mock_menu):
         """Test that main() handles interactive picker failure."""
         # Setup mocks
         mock_ui = MagicMock()
         mock_ui_factory.create.return_value = mock_ui
+        mock_menu.return_value = 'two_drives'  # Select two-drives from menu
         mock_picker.return_value = None  # Picker failed
 
         # Create args with no paths
@@ -331,6 +341,102 @@ class TestHealthCheckDisplay(unittest.TestCase):
         # Should pass because keep is writable and other read-only is OK
         self.assertTrue(result)
 
+    @patch('diskcomp.cli.sys.platform', 'darwin')
+    @patch('diskcomp.cli.get_fix_instructions')
+    def test_display_health_result_ntfs_on_macos(self, mock_fix_instr):
+        """Test _display_health_result shows NTFS callout on macOS."""
+        mock_fix_instr.return_value = "Install ntfs-3g: brew install macfuse ntfs-3g"
+
+        health = HealthCheckResult(
+            mountpoint='/Volumes/NTFS',
+            total_gb=500.0,
+            used_gb=250.0,
+            free_gb=250.0,
+            fstype='NTFS',
+            is_writable=False,
+            warnings=[],
+            errors=[]
+        )
+
+        mock_ui = MagicMock()
+        _display_health_result(mock_ui, "NTFS Drive", "/Volumes/NTFS", health)
+
+        # Verify the NTFS callout was displayed
+        warn_calls = [str(c) for c in mock_ui.warn.call_args_list]
+        self.assertTrue(any("NTFS on darwin" in s for s in warn_calls))
+        self.assertTrue(any("read-only" in s for s in warn_calls))
+        self.assertTrue(any("Files cannot be deleted" in s for s in warn_calls))
+
+    @patch('diskcomp.cli.sys.platform', 'linux')
+    @patch('diskcomp.cli.get_fix_instructions')
+    def test_display_health_result_ntfs_on_linux(self, mock_fix_instr):
+        """Test _display_health_result shows NTFS callout on Linux."""
+        mock_fix_instr.return_value = "Install ntfs-3g: sudo apt install ntfs-3g"
+
+        health = HealthCheckResult(
+            mountpoint='/mnt/ntfs',
+            total_gb=1000.0,
+            used_gb=500.0,
+            free_gb=500.0,
+            fstype='NTFS',
+            is_writable=False,
+            warnings=[],
+            errors=[]
+        )
+
+        mock_ui = MagicMock()
+        _display_health_result(mock_ui, "NTFS Drive", "/mnt/ntfs", health)
+
+        # Verify the NTFS callout was displayed
+        warn_calls = [str(c) for c in mock_ui.warn.call_args_list]
+        self.assertTrue(any("NTFS on linux" in s for s in warn_calls))
+        self.assertTrue(any("read-only" in s for s in warn_calls))
+        self.assertTrue(any("Files cannot be deleted" in s for s in warn_calls))
+
+    @patch('diskcomp.cli.sys.platform', 'win32')
+    @patch('diskcomp.cli.get_fix_instructions')
+    def test_display_health_result_ntfs_on_windows(self, mock_fix_instr):
+        """Test _display_health_result does NOT show NTFS callout on Windows."""
+        health = HealthCheckResult(
+            mountpoint='D:\\',
+            total_gb=500.0,
+            used_gb=250.0,
+            free_gb=250.0,
+            fstype='NTFS',
+            is_writable=True,
+            warnings=[],
+            errors=[]
+        )
+
+        mock_ui = MagicMock()
+        _display_health_result(mock_ui, "NTFS Drive", "D:\\", health)
+
+        # Verify the NTFS callout was NOT displayed
+        warn_calls = [str(c) for c in mock_ui.warn.call_args_list]
+        self.assertFalse(any("NTFS on win32" in s for s in warn_calls))
+        self.assertFalse(any("NTFS on" in s for s in warn_calls))
+
+    @patch('diskcomp.cli.sys.platform', 'darwin')
+    @patch('diskcomp.cli.get_fix_instructions')
+    def test_display_health_result_ext4_on_macos(self, mock_fix_instr):
+        """Test _display_health_result does NOT show NTFS callout for ext4 on macOS."""
+        health = HealthCheckResult(
+            mountpoint='/Volumes/ext4',
+            total_gb=500.0,
+            used_gb=250.0,
+            free_gb=250.0,
+            fstype='ext4',
+            is_writable=False,
+            warnings=[],
+            errors=[]
+        )
+
+        mock_ui = MagicMock()
+        _display_health_result(mock_ui, "ext4 Drive", "/Volumes/ext4", health)
+
+        # Verify the NTFS callout was NOT displayed for non-NTFS filesystem
+        warn_calls = [str(c) for c in mock_ui.warn.call_args_list]
+        self.assertFalse(any("NTFS on" in s for s in warn_calls))
 
 
 class TestParseSize(unittest.TestCase):
@@ -375,6 +481,102 @@ class TestParseSize(unittest.TestCase):
             parse_size_value("10XB")
         with self.assertRaises(ValueError):
             parse_size_value("")
+
+
+class TestFirstRunMenu(unittest.TestCase):
+    """Test suite for show_first_run_menu function."""
+
+    @patch('diskcomp.cli.input')
+    def test_show_first_run_menu_option_1(self, mock_input):
+        """Test show_first_run_menu returns 'two_drives' on input '1'."""
+        mock_input.return_value = '1'
+        result = show_first_run_menu()
+        self.assertEqual(result, 'two_drives')
+
+    @patch('diskcomp.cli.input')
+    def test_show_first_run_menu_option_2(self, mock_input):
+        """Test show_first_run_menu returns 'single_drive' on input '2'."""
+        mock_input.return_value = '2'
+        result = show_first_run_menu()
+        self.assertEqual(result, 'single_drive')
+
+    @patch('diskcomp.cli.input')
+    def test_show_first_run_menu_option_3(self, mock_input):
+        """Test show_first_run_menu returns 'help' on input '3'."""
+        mock_input.return_value = '3'
+        result = show_first_run_menu()
+        self.assertEqual(result, 'help')
+
+    @patch('diskcomp.cli.input')
+    def test_show_first_run_menu_option_4(self, mock_input):
+        """Test show_first_run_menu returns 'quit' on input '4'."""
+        mock_input.return_value = '4'
+        result = show_first_run_menu()
+        self.assertEqual(result, 'quit')
+
+    @patch('diskcomp.cli.input')
+    def test_show_first_run_menu_invalid_then_valid(self, mock_input):
+        """Test show_first_run_menu retries on invalid input then returns valid choice."""
+        mock_input.side_effect = ['0', '5', 'x', '1']
+        result = show_first_run_menu()
+        self.assertEqual(result, 'two_drives')
+        # Should have been called 4 times (3 invalid + 1 valid)
+        self.assertEqual(mock_input.call_count, 4)
+
+    @patch('diskcomp.cli.input')
+    def test_show_first_run_menu_whitespace_stripped(self, mock_input):
+        """Test show_first_run_menu handles whitespace in input."""
+        mock_input.return_value = '  2  '
+        result = show_first_run_menu()
+        self.assertEqual(result, 'single_drive')
+
+    @patch('sys.stdout', new_callable=StringIO)
+    @patch('diskcomp.cli.input')
+    def test_show_first_run_menu_displays_menu(self, mock_input, mock_stdout):
+        """Test show_first_run_menu displays the menu text."""
+        mock_input.return_value = '1'
+        show_first_run_menu()
+        output = mock_stdout.getvalue()
+        # Check for menu options
+        self.assertIn('What would you like to do?', output)
+        self.assertIn('Compare two drives', output)
+        self.assertIn('Clean up a single drive', output)
+        self.assertIn('Help', output)
+        self.assertIn('Quit', output)
+
+
+class TestHelpGuide(unittest.TestCase):
+    """Test suite for show_help_guide function."""
+
+    @patch('sys.stdout', new_callable=StringIO)
+    def test_show_help_guide_output(self, mock_stdout):
+        """Test show_help_guide displays guide text."""
+        show_help_guide()
+        output = mock_stdout.getvalue()
+        # Check for key phrases from the help guide
+        self.assertIn('diskcomp', output)
+        self.assertIn('Two modes', output)
+        self.assertIn('safety', output)
+        self.assertIn('Compare two drives', output)
+        self.assertIn('Clean up a single drive', output)
+
+    @patch('sys.stdout', new_callable=StringIO)
+    def test_show_help_guide_includes_safety_facts(self, mock_stdout):
+        """Test show_help_guide includes three safety facts."""
+        show_help_guide()
+        output = mock_stdout.getvalue()
+        # Check for safety-related text
+        self.assertIn('explicit confirmation', output)
+        self.assertIn('undo log', output)
+        self.assertIn('read-only', output)
+
+    @patch('sys.stdout', new_callable=StringIO)
+    def test_show_help_guide_includes_all_modes(self, mock_stdout):
+        """Test show_help_guide mentions both modes."""
+        show_help_guide()
+        output = mock_stdout.getvalue()
+        self.assertIn('two drives', output)
+        self.assertIn('single drive', output)
 
 
 if __name__ == '__main__':

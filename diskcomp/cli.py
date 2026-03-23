@@ -17,7 +17,7 @@ from diskcomp.reporter import DuplicateClassifier, ReportWriter
 from diskcomp.ui import UIHandler
 from diskcomp.types import ScanError, InvalidPathError, FileNotReadableError
 from diskcomp.drive_picker import interactive_drive_picker
-from diskcomp.health import check_drive_health
+from diskcomp.health import check_drive_health, get_fix_instructions
 from diskcomp.benchmarker import benchmark_read_speed
 
 
@@ -220,6 +220,13 @@ def _display_health_result(ui, label, path, health):
     ui.kv("Writable", "Yes" if health.is_writable else "No — read-only",
           'ok' if health.is_writable else 'warn')
 
+    # Add NTFS-on-macOS/Linux specific callout (D-19)
+    if health.fstype == 'NTFS' and sys.platform in ['darwin', 'linux']:
+        fix_text = get_fix_instructions(health.fstype, sys.platform, path)
+        ui.warn(f"⚠ NTFS on {sys.platform}: This drive is read-only. Files cannot be deleted from it here.")
+        if fix_text:
+            ui.warn(f"To fix: {fix_text}")
+
     if health.benchmark_result:
         if health.benchmark_result.success:
             ui.kv("Speed", f"{health.benchmark_result.speed_mbps:.1f} MB/s")
@@ -336,6 +343,74 @@ def _show_undo_log(log_file_path: str) -> int:
         return 1
 
 
+def show_first_run_menu():
+    """
+    Display first-run menu and return user's selection (D-07 through D-11).
+
+    Menu options:
+      1) Compare two drives — returns 'two_drives'
+      2) Clean up a single drive — returns 'single_drive'
+      3) Help — returns 'help'
+      4) Quit — returns 'quit'
+
+    Returns:
+        One of: 'two_drives', 'single_drive', 'help', 'quit'
+    """
+    while True:
+        menu_text = """
+What would you like to do?
+  1) Compare two drives
+  2) Clean up a single drive
+  3) Help
+  4) Quit
+        """.strip()
+        print(menu_text)
+        print()
+
+        choice = input("Select (1-4): ").strip()
+
+        if choice in ['1', '2', '3', '4']:
+            mapping = {'1': 'two_drives', '2': 'single_drive', '3': 'help', '4': 'quit'}
+            return mapping[choice]
+        else:
+            print("Invalid choice. Please enter 1, 2, 3, or 4.")
+            print()
+
+
+def show_help_guide():
+    """
+    Display quick help guide (D-10) with plain English explanation.
+    """
+    guide = """
+About diskcomp:
+  diskcomp finds duplicate files on your drives and helps you safely delete them
+  to free up space. You provide two drives (or one), and diskcomp shows which files
+  appear in both places.
+
+Two modes:
+  - Compare two drives: Scan two separate drives (e.g., your SSD and backup)
+    and find duplicates between them. Delete from the "other" drive while keeping
+    the copy on the "keep" drive.
+
+  - Clean up a single drive: Scan one drive and find files that appear more than
+    once on that same drive. Keep the first copy, delete the redundant ones.
+
+Three safety facts:
+  1) No file is deleted without your explicit confirmation — diskcomp never
+     deletes automatically.
+  2) Every deletion is recorded in an undo log. You can review what was deleted
+     and (manually) restore files if needed.
+  3) diskcomp works with read-only drives (backups) safely — you can't delete
+     from a read-only drive even if you wanted to.
+
+More info: Run diskcomp --help for detailed flag reference.
+    """.strip()
+
+    print()
+    print(guide)
+    print()
+
+
 def show_startup_banner():
     """
     Display startup banner with logo, tagline, and version (D-04, D-05, D-06).
@@ -401,6 +476,25 @@ def main(args=None):
 
     if is_interactive_mode:
         show_startup_banner()
+
+        # Display first-run menu and handle selection
+        while True:
+            selection = show_first_run_menu()
+
+            if selection == 'quit':
+                print("Goodbye!")
+                return 0
+            elif selection == 'help':
+                show_help_guide()
+                # Loop back to menu
+                continue
+            elif selection == 'two_drives':
+                # Proceed with two-drive flow
+                break
+            elif selection == 'single_drive':
+                # Proceed with single-drive flow (Plan 06 handles this)
+                # For now, just break out of menu
+                break
 
 
     # Handle --undo flag (audit view only, no restoration)

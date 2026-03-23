@@ -98,6 +98,21 @@ python3 -m diskcomp --keep /path/A --other /path/B --dry-run
 - **Dry-run mode** — preview all operations without side effects
 - **Abortable** — press `Ctrl+C` at any prompt to stop safely
 
+## Known Limitations
+
+### NTFS Drives on macOS and Linux
+
+NTFS (Windows filesystem) drives are read-only on macOS and Linux by default. This means:
+- diskcomp can **scan** and **identify** duplicates on NTFS drives
+- diskcomp **cannot delete** files from NTFS drives (parent filesystem restriction)
+
+**Workaround:**
+If you need to delete from an NTFS drive on macOS or Linux, install a third-party NTFS driver:
+- **macOS**: Use [ntfs-3g with macFUSE](https://github.com/gromgit/homebrew-fuse) or [Tuxera NTFS](https://www.tuxera.com/products/ntfs-for-mac/)
+- **Linux**: Install `ntfs-3g` package: `sudo apt install ntfs-3g` (Debian/Ubuntu) or `sudo dnf install ntfs-3g` (Fedora)
+
+diskcomp will detect this limitation and warn you during health checks.
+
 ## Optional Enhancements
 
 **Rich library** — professional progress bars and styling:
