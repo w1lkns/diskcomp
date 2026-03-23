@@ -77,6 +77,7 @@ Make diskcomp feel like a product, not a script. Three improvements: (1) a first
 ### Summary Table Bug Fix
 
 - **D-25:** Fix `Unique (Keep)` and `Unique (Other)` sizes showing as `0.00 MB`. Root cause: `DuplicateClassifier.classify()` likely omits size tallying for unique files, or `show_summary()` receives zeroed values. The fix must surface correct byte totals for both unique sets in the summary table.
+- **D-26:** Replace "Unique (Keep)" / "Unique (Other)" row labels with the actual drive name. Use volume label if available (already collected in `DriveInfo.volume_label`), otherwise last path segment (`os.path.basename(path.rstrip('/\\'))`), otherwise full path. Format: `"Unique in {label}"`. Apply to both `RichProgressUI` and `ANSIProgressUI` `show_summary()` — pass `keep_label` and `other_label` as new parameters.
 
 ### Preserved Decisions (from prior phases)
 
