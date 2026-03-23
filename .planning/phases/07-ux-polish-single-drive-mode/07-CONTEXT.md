@@ -74,6 +74,10 @@ Make diskcomp feel like a product, not a script. Three improvements: (1) a first
   Selecting 1 or 2 launches the existing `DeletionOrchestrator` immediately (same as `--delete-from` workflow but using the just-generated report path). Selecting 3 shows the next-steps block and exits. This applies to both two-drive and `--single` modes.
 - **D-24:** If 0 duplicates found, skip the action menu entirely — show the "no duplicates" message and exit cleanly.
 
+### Summary Table Bug Fix
+
+- **D-25:** Fix `Unique (Keep)` and `Unique (Other)` sizes showing as `0.00 MB`. Root cause: `DuplicateClassifier.classify()` likely omits size tallying for unique files, or `show_summary()` receives zeroed values. The fix must surface correct byte totals for both unique sets in the summary table.
+
 ### Preserved Decisions (from prior phases)
 
 - **D-21:** `--keep` / `--other` flag names retained as-is. No aliases added.

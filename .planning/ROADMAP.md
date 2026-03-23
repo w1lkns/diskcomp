@@ -144,6 +144,7 @@ Plans:
   8. Startup banner shown in interactive (no-args) mode: ASCII art "diskcomp" logo, version, one-line tagline — not shown when flags are passed directly
   9. `--min-size <value>` flag (e.g. `10MB`, `500KB`) overrides the default 1KB floor; interactive wizard prompts "Skip files smaller than? [1KB]" with the flag value as the suggested default
   10. Post-scan action menu: after the summary, show "What next? 1) Review and delete interactively  2) Batch delete  3) Exit" — selecting 1 or 2 launches the existing deletion workflow immediately without requiring a separate `--delete-from` command
+  11. Fix summary table: Unique (Keep) and Unique (Other) sizes display as 0.00 MB — unique file sizes must be correctly tallied and shown
 
 ### Phase 8: Standalone Distribution
 **Goal**: Non-developers can download and run diskcomp with zero setup. No Python required.
