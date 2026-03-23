@@ -110,7 +110,7 @@ Plans:
 | 4. Guided Deletion | 3/3 | Complete    | 2026-03-22 |
 | 5. Packaging + Distribution | 1/1 | Complete    | 2026-03-23 |
 | 6. Performance | 3/3 | Complete    | 2026-03-23 |
-| 7. UX Polish + Single-Drive | —   | Planned     | — |
+| 7. UX Polish + Single-Drive | 1/9 | In Progress | 2026-03-23 |
 | 8. Standalone Distribution | —   | Planned     | — |
 
 ### Phase 6: Performance
@@ -149,7 +149,7 @@ Plans:
 **Plans**: 9 plans
 
 Plans:
-- [ ] 07-01-PLAN.md — Summary Table Bug Fix (tally unique sizes correctly, accept label parameters) ✓ PLANNED
+- [x] 07-01-PLAN.md — Summary Table Bug Fix (tally unique sizes correctly, accept label parameters) ✓ COMPLETE
 - [ ] 07-02-PLAN.md — --min-size Flag (parse_size_value helper, human-readable sizes, CLI integration) ✓ PLANNED
 - [ ] 07-03-PLAN.md — Startup Banner (show_startup_banner function, interactive-mode only, version from importlib.metadata) ✓ PLANNED
 - [ ] 07-04-PLAN.md — First-Run Wizard Menu (show_first_run_menu function, 4 options, help guide) ✓ PLANNED
@@ -191,3 +191,4 @@ Plans:
 *Phase 6 plans created: 2026-03-23 — 3 plans (size filter, testing, UI updates)*
 *Phase 6 complete: 2026-03-23 — 187 tests passing, ≥5× speedup validated*
 *Phase 7 plans created: 2026-03-23 — 9 plans (summary table fix, --min-size, banner, wizard, plain-language summary, single-drive mode, action menu, NTFS callout, full integration)*
+*Phase 7 Plan 01 complete: 2026-03-23 — Summary table bug fix (unique file sizes, label parameters); 37 tests passing*

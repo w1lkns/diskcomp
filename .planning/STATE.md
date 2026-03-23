@@ -2,13 +2,13 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: Phase 06 Complete
-last_updated: "2026-03-23T10:10:00.000Z"
+status: Phase 07 In Progress
+last_updated: "2026-03-23T13:30:00.000Z"
 progress:
   total_phases: 9
   completed_phases: 6
   total_plans: 17
-  completed_plans: 18
+  completed_plans: 19
 ---
 
 # diskcomp — Project State
@@ -45,6 +45,7 @@ See: .planning/PROJECT.md (updated 2026-03-22)
 - 2026-03-22 18:05: Plan 04-02 (Orchestration: Interactive & Batch Modes) complete. DeletionOrchestrator class (380+ LOC) with interactive_mode() and batch_mode() methods. Mode A: per-file confirmation with running totals and skip handling. Mode B: dry-run preview, type-to-confirm, progress callbacks. UIHandler extended with deletion display methods. undo_log.add() ALWAYS called before deletion for audit trail per D-12. tests/test_deletion.py extended (19 new tests). 167/167 tests passing (14 skipped). Ready for Plan 04-03 (CLI Integration).
 - 2026-03-22 18:15: Plan 04-03 (CLI Integration: --delete-from and --undo flags + Tests) complete. diskcomp/cli.py: added --delete-from and --undo flags, _show_undo_log() function (audit display), _check_deletion_readiness() function (read-only detection). --undo early exit in main() before scan. --delete-from workflow: report validation, candidate filtering, mode selection, orchestrator invocation, result display, abort message per D-16, KeyboardInterrupt handling. tests/test_integration.py: TestDeletionCLI class with 11 comprehensive tests (error handling, happy path, mode selection). 179/179 tests passing (14 skipped). Phase 4 COMPLETE: full deletion workflow with audit trails and safe confirmation enabled.
 - 2026-03-23 00:01: Plan 05-01 (Packaging + Distribution) complete. pyproject.toml with hatchling backend and entry point, build_single.py for single-file bundling (11 modules, 19 deduplicated stdlib imports), .github/workflows/ci.yml with 9 matrix combinations (3 OS × 3 Python versions), .gitignore updated for generated diskcomp.py artifact, comprehensive README.md with install paths/usage/safety model. pip install -e . verified successfully, optional Rich dependency verified with graceful fallback. diskcomp.py generated (~106 KB), executable with --help and --dry-run. 179/179 tests passing (14 skipped). Phase 5 COMPLETE: diskcomp is now packagable and distributable via two paths (pip install + standalone .py). Ready for PyPI publish or release distribution.
+- 2026-03-23 13:30: Plan 07-01 (Summary Table Display Fix) complete. Fixed DuplicateClassifier.classify() to correctly tally unique file sizes using byte-level accumulation before MB conversion (D-25). Updated RichProgressUI.show_summary() and ANSIProgressUI.show_summary() to accept keep_label and other_label parameters (D-26), replacing hardcoded "Unique (Keep)"/"Unique (Other)" with dynamic "Unique in {label}" format. Added 5 comprehensive tests verifying correct size calculation and label display. All 37 tests passing (8 skipped - Rich unavailable). Summary table display now fully functional with correct unique sizes and customizable labels. Ready for Phase 7 Plan 02 (--min-size flag).
 
 ## Performance Metrics
 
@@ -63,6 +64,7 @@ See: .planning/PROJECT.md (updated 2026-03-22)
 | 04 | 02 | 4 | ~20m | 2 modified | 5 (deletion, ui, test_deletion, test_ui, summary) |
 | 04 | 03 | 4 | ~45m | 2 modified | 3 (cli, test_integration, summary) |
 | 05 | 01 | 7 | ~25m | 5 created, 1 modified | 6 (pyproject.toml, build_single.py, ci.yml, .gitignore, README, summary) |
+| 07 | 01 | 2 | ~6m | 0 created, 4 modified | 1 (fix, test updates, summary) |
 
 ## Decisions Made
 
@@ -165,6 +167,13 @@ See: .planning/PROJECT.md (updated 2026-03-22)
 - README.md: Comprehensive public-facing docs with badges (CI status, PyPI version), install paths (pip, single-file, development), usage examples, flags reference, safety model, optional enhancements
 - .gitignore: Added diskcomp.py exclusion (generated artifact, never commit)
 
+### Phase 7 Plan 01 (Summary Table Display Fix)
+
+- Byte-level accumulation: Track unique file sizes in bytes during the classification loop, then convert the total to MB once at the end. This prevents rounding errors where small unique files (e.g., 2KB = 0.001953125 MB) would round to 0.00 MB and cause the summary total to display as 0.0 MB.
+- Default label parameters: Added keep_label="Keep" and other_label="Other" as optional parameters to both RichProgressUI.show_summary() and ANSIProgressUI.show_summary(). Callers can override with actual drive names (volume labels, path segments, or full paths).
+- Backward compatibility: Existing code calling show_summary() without label parameters continues to work with the defaults, no breaking changes.
+- Test file sizes: Use 1MB, 2MB, and 3MB files (1048576, 2097152, 3145728 bytes) in tests to avoid rounding issues; these cleanly convert to whole or simple decimal MB values.
+
 ## Next Action
 
-Phase 6 COMPLETE! 187 tests passing (15 skipped). Two-pass size filter implemented: filter_by_size_collision() in hasher.py, CLI pipeline wired in cli.py, "candidates" UI terminology in both Rich and ANSI backends. Benchmark validated (≥5× speedup, opt-in via RUN_SLOW_TESTS=1). Ready for Phase 7 (UX Polish + Single-Drive Mode).
+Phase 7 Plan 01 COMPLETE! 37 tests passing (8 skipped - Rich unavailable). Summary table display bug fixed: unique file sizes now correctly tally using byte-level accumulation; label parameters enable dynamic drive name display. Infrastructure ready for Phase 7 Plan 02 (--min-size flag implementation).
