@@ -269,7 +269,7 @@ def _check_deletion_readiness(candidates: list) -> tuple:
     readonly_warnings = []
 
     for candidate in candidates:
-        other_path = candidate['other_path']
+        other_path = candidate.get('duplicate_file') or candidate.get('other_path', '')
         try:
             # Check if the file's parent directory is writable
             parent_dir = os.path.dirname(os.path.abspath(other_path)) or os.sep

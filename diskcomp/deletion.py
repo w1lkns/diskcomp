@@ -185,13 +185,17 @@ class DeletionOrchestrator:
         try:
             for i, candidate in enumerate(self.candidates):
                 current_index = i
-                other_path = candidate['other_path']
+                other_path = candidate.get('duplicate_file') or candidate.get('other_path', '')
                 size_mb = float(candidate['size_mb'])
-                file_hash = candidate['hash']
+                file_hash = candidate.get('verification_hash') or candidate.get('hash', '')
+
+                keep_path = candidate.get('original_file') or candidate.get('keep_path')
 
                 # Prompt user (per D-04: show both paths, size, hash verification)
                 print(f"\n[{i+1}/{len(self.candidates)}] File to delete:", file=sys.stderr)
-                print(f"  Path: {other_path}", file=sys.stderr)
+                print(f"  Delete: {other_path}", file=sys.stderr)
+                if keep_path:
+                    print(f"  Keep:   {keep_path}", file=sys.stderr)
                 print(f"  Size: {size_mb} MB", file=sys.stderr)
                 print(f"  Hash: {file_hash[:16]}... (verified match)", file=sys.stderr)
                 print(f"  Space freed so far: {space_freed_mb:.2f} MB", file=sys.stderr)
@@ -286,18 +290,43 @@ class DeletionOrchestrator:
         try:
             # Phase 1: Dry-run preview
             total_mb = sum(float(c['size_mb']) for c in self.candidates)
-            print(f"\n=== Deletion Preview (Batch Mode) ===", file=sys.stderr)
-            print(f"Files to delete: {len(self.candidates)}", file=sys.stderr)
-            print(f"Space to free: {total_mb:.2f} MB", file=sys.stderr)
-            print("\nFiles:", file=sys.stderr)
+            total_display = f"{total_mb / 1024:.1f} GB" if total_mb >= 1024 else f"{total_mb:.0f} MB"
 
-            if len(self.candidates) <= 5:
-                for c in self.candidates:
-                    print(f"  - {c['other_path']} ({c['size_mb']} MB)", file=sys.stderr)
-            else:
-                for c in self.candidates[:5]:
-                    print(f"  - {c['other_path']} ({c['size_mb']} MB)", file=sys.stderr)
-                print(f"  ... and {len(self.candidates) - 5} more", file=sys.stderr)
+            print(f"\n── Batch Delete Preview ────────────────────────────────────────", file=sys.stderr)
+            print(f"  Files to delete : {len(self.candidates):,}", file=sys.stderr)
+            print(f"  Space to free   : {total_display}", file=sys.stderr)
+
+            # File type breakdown
+            ext_stats = {}
+            for c in self.candidates:
+                path = c.get('duplicate_file') or c.get('other_path', '')
+                ext = os.path.splitext(path)[1].lower() or '(no extension)'
+                mb = float(c['size_mb'])
+                if ext not in ext_stats:
+                    ext_stats[ext] = {'count': 0, 'mb': 0.0}
+                ext_stats[ext]['count'] += 1
+                ext_stats[ext]['mb'] += mb
+
+            top_exts = sorted(ext_stats.items(), key=lambda x: x[1]['mb'], reverse=True)[:5]
+            print(f"\n  By file type:", file=sys.stderr)
+            for ext, stats in top_exts:
+                size_str = f"{stats['mb'] / 1024:.1f} GB" if stats['mb'] >= 1024 else f"{stats['mb']:.0f} MB"
+                print(f"    {ext or '(no ext)':16}  {stats['count']:>5,} files   {size_str}", file=sys.stderr)
+
+            # Top 5 largest files with their originals
+            sorted_candidates = sorted(self.candidates, key=lambda c: float(c['size_mb']), reverse=True)
+            print(f"\n  Largest files to delete:", file=sys.stderr)
+            for c in sorted_candidates[:5]:
+                path = c.get('duplicate_file') or c.get('other_path', '')
+                original = c.get('original_file') or c.get('keep_path', '')
+                mb = float(c['size_mb'])
+                size_str = f"{mb / 1024:.1f} GB" if mb >= 1024 else f"{mb:.1f} MB"
+                print(f"    [{size_str}] {os.path.basename(path)}", file=sys.stderr)
+                if original:
+                    print(f"      Original: {original}", file=sys.stderr)
+
+            print(f"\n  Safety: an undo log will be saved so you can recover files if needed.", file=sys.stderr)
+            print(f"────────────────────────────────────────────────────────────────────", file=sys.stderr)
 
             # Phase 2: Confirmation
             confirm = input("\nType DELETE to proceed, or Ctrl+C to abort: ").strip()
@@ -322,9 +351,9 @@ class DeletionOrchestrator:
                 self.ui.start_deletion(len(self.candidates))
 
             for i, candidate in enumerate(self.candidates):
-                other_path = candidate['other_path']
+                other_path = candidate.get('duplicate_file') or candidate.get('other_path', '')
                 size_mb = float(candidate['size_mb'])
-                file_hash = candidate['hash']
+                file_hash = candidate.get('verification_hash') or candidate.get('hash', '')
 
                 try:
                     # Log entry BEFORE deletion (per D-12)

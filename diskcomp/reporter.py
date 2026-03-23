@@ -283,24 +283,28 @@ class ReportWriter:
             target_path += '.csv'
         self.output_path = target_path
 
+        status_map = {
+            'DELETE_FROM_OTHER': 'Duplicate — safe to delete',
+            'UNIQUE_IN_KEEP':    'Only on first drive (keep)',
+            'UNIQUE_IN_OTHER':   'Only on second drive',
+        }
+
         def writer_func(f):
             csv_writer = csv.DictWriter(
                 f,
-                fieldnames=['action', 'keep_path', 'other_path', 'size_mb', 'hash']
+                fieldnames=['status', 'original_file', 'duplicate_file', 'size_mb', 'verification_hash']
             )
             csv_writer.writeheader()
 
-            # Write duplicates
-            for item in classification['duplicates']:
-                csv_writer.writerow(item)
-
-            # Write unique_in_keep
-            for item in classification['unique_in_keep']:
-                csv_writer.writerow(item)
-
-            # Write unique_in_other
-            for item in classification['unique_in_other']:
-                csv_writer.writerow(item)
+            for group in ['duplicates', 'unique_in_keep', 'unique_in_other']:
+                for item in classification[group]:
+                    csv_writer.writerow({
+                        'status':            status_map.get(item['action'], item['action']),
+                        'original_file':     item.get('keep_path') or '',
+                        'duplicate_file':    item.get('other_path') or '',
+                        'size_mb':           item['size_mb'],
+                        'verification_hash': item['hash'],
+                    })
 
         self._write_atomic(target_path, writer_func)
 
@@ -363,7 +367,16 @@ class ReportReader:
             with open(file_path, 'r') as f:
                 reader = csv.DictReader(f)
                 for row in reader:
-                    if row and row.get('action') == 'DELETE_FROM_OTHER':
+                    if not row:
+                        continue
+                    # Support both new friendly format and old technical format
+                    status = row.get('status') or row.get('action', '')
+                    if status in ('Duplicate — safe to delete', 'DELETE_FROM_OTHER'):
+                        # Normalise to new key names
+                        if 'duplicate_file' not in row:
+                            row['duplicate_file'] = row.get('other_path', '')
+                            row['original_file'] = row.get('keep_path', '')
+                            row['verification_hash'] = row.get('hash', '')
                         candidates.append(row)
         except csv.Error as e:
             raise ValueError(f"CSV format error: {e}") from e
