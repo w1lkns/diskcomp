@@ -1373,37 +1373,29 @@ def main(args=None):
             show_plain_language_summary(summary, mode='single_drive', keep_label=drive_label, other_label=drive_label)
             show_next_steps(writer.output_path)
 
-            # Show action menu only if duplicates found (D-24)
+            # Show post-scan menu if duplicates found (D-24)
             if summary.get('duplicate_count', 0) > 0:
-                action = show_action_menu()
+                # Initialize NavigationContext with scan results
+                context = NavigationContext(
+                    scan_results=classification,
+                    keep_path=single_path,
+                    other_path=single_path,
+                    report_path=writer.output_path
+                )
 
-                if action == 'interactive' or action == 'batch':
-                    # Load candidates from report and launch deletion workflow
-                    from diskcomp.reporter import ReportReader
-                    from diskcomp.deletion import DeletionOrchestrator
+                # Run post-scan menu workflow (handles folder skip, file flagging, deletion, back navigation)
+                outcome = run_post_scan_menu(context, ui)
 
-                    candidates = ReportReader.load(writer.output_path)
-
-                    if candidates:
-                        orchestrator = DeletionOrchestrator(candidates, ui, writer.output_path)
-
-                        if action == 'interactive':
-                            result = orchestrator.interactive_mode()
-                        else:
-                            result = orchestrator.batch_mode()
-
-                        # Display result summary
-                        print(f"\nDeletion complete: {result.files_deleted} deleted, {result.space_freed_mb:.2f} MB freed", file=sys.stderr)
-                        if result.errors:
-                            for error in result.errors:
-                                print(f"Error: {error}", file=sys.stderr)
-
-                        # Show undo log path
-                        if result.undo_log_path:
-                            print(f"Undo log: {result.undo_log_path}", file=sys.stderr)
-
-                    else:
-                        print("No candidates to delete.", file=sys.stderr)
+                # Handle outcome
+                if outcome == 'deleted':
+                    # Deletion completed successfully
+                    print(f"\nDeletion workflow completed", file=sys.stderr)
+                elif outcome == 'aborted':
+                    # User pressed Ctrl+C during deletion
+                    print(f"\nDeletion aborted by user", file=sys.stderr)
+                elif outcome == 'skipped_deletion':
+                    # User chose not to delete
+                    print(f"\nNo deletion performed", file=sys.stderr)
 
             ui.close()
             return 0
@@ -1554,37 +1546,29 @@ def main(args=None):
         # Show next steps (D-18)
         show_next_steps(writer.output_path)
 
-        # Show action menu only if duplicates found (D-24)
+        # Show post-scan menu if duplicates found (D-24)
         if summary.get('duplicate_count', 0) > 0:
-            action = show_action_menu()
+            # Initialize NavigationContext with scan results
+            context = NavigationContext(
+                scan_results=classification,
+                keep_path=args.keep,
+                other_path=args.other,
+                report_path=writer.output_path
+            )
 
-            if action == 'interactive' or action == 'batch':
-                # Load candidates from report and launch deletion workflow
-                from diskcomp.reporter import ReportReader
-                from diskcomp.deletion import DeletionOrchestrator
+            # Run post-scan menu workflow (handles folder skip, file flagging, deletion, back navigation)
+            outcome = run_post_scan_menu(context, ui)
 
-                candidates = ReportReader.load(writer.output_path)
-
-                if candidates:
-                    orchestrator = DeletionOrchestrator(candidates, ui, writer.output_path)
-
-                    if action == 'interactive':
-                        result = orchestrator.interactive_mode()
-                    else:
-                        result = orchestrator.batch_mode()
-
-                    # Display result summary
-                    print(f"\nDeletion complete: {result.files_deleted} deleted, {result.space_freed_mb:.2f} MB freed", file=sys.stderr)
-                    if result.errors:
-                        for error in result.errors:
-                            print(f"Error: {error}", file=sys.stderr)
-
-                    # Show undo log path
-                    if result.undo_log_path:
-                        print(f"Undo log: {result.undo_log_path}", file=sys.stderr)
-
-                else:
-                    print("No candidates to delete.", file=sys.stderr)
+            # Handle outcome
+            if outcome == 'deleted':
+                # Deletion completed successfully
+                print(f"\nDeletion workflow completed", file=sys.stderr)
+            elif outcome == 'aborted':
+                # User pressed Ctrl+C during deletion
+                print(f"\nDeletion aborted by user", file=sys.stderr)
+            elif outcome == 'skipped_deletion':
+                # User chose not to delete
+                print(f"\nNo deletion performed", file=sys.stderr)
 
         # Close UI
         ui.close()
