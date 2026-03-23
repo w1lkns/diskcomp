@@ -433,6 +433,7 @@ def show_startup_banner():
         ver = '1.1.0'  # Fallback for single-file builds or uninstalled
 
     banner = f"""
+
  ██████╗ ██╗███████╗██╗  ██╗ ██████╗ ██████╗ ███╗   ███╗██████╗
  ██╔══██╗██║██╔════╝██║ ██╔╝██╔════╝██╔═══██╗████╗ ████║██╔══██╗
  ██║  ██║██║███████╗█████╔╝ ██║     ██║   ██║██╔████╔██║██████╔╝
@@ -442,14 +443,14 @@ def show_startup_banner():
 
  Find duplicates. Free space. Stay safe.
  v{ver}
-    """.strip()
+
+    """
 
     try:
         print(banner)
     except UnicodeEncodeError:
         # Fallback for terminals without Unicode support (e.g. Windows cp1252)
-        print(f"diskcomp v{ver} - Find duplicates. Free space. Stay safe.")
-    print()
+        print(f"\ndiskcomp v{ver} - Find duplicates. Free space. Stay safe.\n")
 
 
 def show_plain_language_summary(summary_dict: dict, mode: str = 'two_drives',
@@ -584,6 +585,7 @@ def main(args=None):
     interactive_selection = None
 
     if is_interactive_mode:
+        print("\033[2J\033[H", end='', flush=True)  # Clear screen
         show_startup_banner()
 
         # Display first-run menu and handle selection
