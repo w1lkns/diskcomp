@@ -120,13 +120,13 @@ class RichProgressUI:
         Start hash progress display.
 
         Args:
-            total_files: Total number of files to hash
+            total_files: Total number of files to hash (actually candidates from size filter)
         """
         if not self.progress_context:
             self.progress_context = self.progress.__enter__()
 
         self.hash_task_id = self.progress_context.add_task(
-            "[cyan]Hashing files...",
+            f"[cyan]Hashing 0 / {total_files} candidates",
             total=total_files
         )
 
@@ -303,20 +303,20 @@ class ANSIProgressUI:
         Start hash progress display.
 
         Args:
-            total_files: Total number of files to hash
+            total_files: Total number of files to hash (actually candidates from size filter)
         """
         import sys as _sys
         if _sys.stdout.isatty():
             print()  # end the in-place scan line
-        print(f"{colored(ARROW, CYAN)} Hashing {total_files} files...")
+        print(f"{colored(ARROW, CYAN)} Hashing {total_files} candidates...")
 
     def on_file_hashed(self, current: int, total: int, speed_mbps: float, eta_secs: Optional[int] = None):
         """
         Update hash progress after hashing a file.
 
         Args:
-            current: Number of files hashed so far
-            total: Total number of files to hash
+            current: Number of files hashed so far (from candidates)
+            total: Total number of files to hash (candidates from size filter)
             speed_mbps: Current hashing speed in MB/s
             eta_secs: Estimated seconds remaining
         """
@@ -324,7 +324,7 @@ class ANSIProgressUI:
         bar = progress_bar(current, total)
         speed_str = format_speed(speed_mbps * 1048576)  # Convert MB/s to bytes/s
 
-        output = f"{bar}  {current}/{total}  {speed_str}"
+        output = f"{bar}  Hashing {current} / {total} candidates  {speed_str}"
 
         if eta_secs is not None and eta_secs > 0:
             output += f"  ETA {format_eta(eta_secs)}"
