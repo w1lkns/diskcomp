@@ -141,6 +141,7 @@ Plans:
   5. Post-scan "next steps" block printed after every scan: exact commands to review, delete, and undo — using the actual report filename generated
   6. NTFS-on-macOS limitation called out explicitly in health check output and README
   7. `--keep` / `--other` flag names retained as-is — aliases dropped; ambiguous names create deletion safety risk
+  8. Startup banner shown in interactive (no-args) mode: ASCII art "diskcomp" logo, version, one-line tagline — not shown when flags are passed directly
 
 ### Phase 8: Standalone Distribution
 **Goal**: Non-developers can download and run diskcomp with zero setup. No Python required.
