@@ -109,7 +109,7 @@ Plans:
 | 3. Drive Health + Setup | 3/3 | Complete    | 2026-03-22 |
 | 4. Guided Deletion | 3/3 | Complete    | 2026-03-22 |
 | 5. Packaging + Distribution | 1/1 | Complete    | 2026-03-23 |
-| 6. Performance | —   | Planned     | — |
+| 6. Performance | 3/3 | Planned     | — |
 | 7. UX Polish | —   | Planned     | — |
 | 8. Standalone Distribution | —   | Planned     | — |
 
@@ -122,6 +122,12 @@ Plans:
   2. Benchmark shows ≥5× speedup on drives with <10% duplicate rate (typical real-world drives)
   3. All existing tests pass; results are identical to the single-pass approach
   4. Progress UI updated to reflect two-phase scan (size pass + hash pass)
+**Plans**: 3 plans
+
+Plans:
+- [ ] 06-01-PLAN.md — Size Filter + CLI Integration (filter_by_size_collision function, status line, wiring)
+- [ ] 06-02-PLAN.md — Testing + Benchmarks (unit tests for filter, performance benchmark, all tests pass)
+- [ ] 06-03-PLAN.md — UI Updates (progress bar 'candidates' terminology, both Rich and ANSI modes)
 
 ### Phase 7: UX Polish + Single-Drive Mode
 **Goal**: First-time users understand the tool immediately; single-drive users get the same safe dedup experience without needing a second drive.
@@ -165,3 +171,4 @@ Plans:
 *Phase 5 complete: 2026-03-23 00:01*
 *v1.0 complete: All 5 phases (15 total plans) executed successfully*
 *v1.1 phases revised: 2026-03-23 — Phase 7 expanded with first-run wizard + plain-language results; Phase 9 replaced Claude Code skill with website; SMART data and Claude skill deferred as low adoption impact*
+*Phase 6 plans created: 2026-03-23 — 3 plans (size filter, testing, UI updates)*
