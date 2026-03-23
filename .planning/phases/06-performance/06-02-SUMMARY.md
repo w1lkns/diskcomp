@@ -116,7 +116,8 @@ Created new test file with 3 benchmark/validation tests:
 - test_filter_stats_accuracy: PASS
 
 **Performance benchmark (opt-in, skipped in normal runs):**
-- test_size_filter_speedup: SKIPPED (requires RUN_SLOW_TESTS=1)
+- test_size_filter_speedup: PASS when run with `RUN_SLOW_TESTS=1` (0.478s execution)
+  - Validates ≥5× speedup with real file hashing
   - Can be run manually: `RUN_SLOW_TESTS=1 python3 -m unittest tests.test_performance.TestSizeFilterPerformance.test_size_filter_speedup -v`
 
 ## Test Coverage
