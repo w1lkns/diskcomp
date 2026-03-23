@@ -151,7 +151,7 @@ class RichProgressUI:
     def show_summary(self, duplicates_mb: float, duplicates_count: int,
                      unique_keep_mb: float, unique_keep_count: int,
                      unique_other_mb: float, unique_other_count: int,
-                     report_path: str):
+                     report_path: str, keep_label: str = "Keep", other_label: str = "Other"):
         """
         Display summary statistics in a formatted table.
 
@@ -163,6 +163,8 @@ class RichProgressUI:
             unique_other_mb: Size of unique files on other drive in MB
             unique_other_count: Count of unique files on other drive
             report_path: Path to the generated report file
+            keep_label: Label for keep drive (default: "Keep")
+            other_label: Label for other drive (default: "Other")
         """
         if not self.console:
             self.console = Console()
@@ -173,8 +175,8 @@ class RichProgressUI:
         table.add_column("Size (MB)", style="green")
 
         table.add_row("Duplicates", str(duplicates_count), f"{duplicates_mb:.2f}")
-        table.add_row("Unique (Keep)", str(unique_keep_count), f"{unique_keep_mb:.2f}")
-        table.add_row("Unique (Other)", str(unique_other_count), f"{unique_other_mb:.2f}")
+        table.add_row(f"Unique in {keep_label}", str(unique_keep_count), f"{unique_keep_mb:.2f}")
+        table.add_row(f"Unique in {other_label}", str(unique_other_count), f"{unique_other_mb:.2f}")
 
         self.console.print(table)
         self.console.print(f"\n[bold]Report saved to:[/bold] {report_path}")
@@ -339,7 +341,7 @@ class ANSIProgressUI:
     def show_summary(self, duplicates_mb: float, duplicates_count: int,
                      unique_keep_mb: float, unique_keep_count: int,
                      unique_other_mb: float, unique_other_count: int,
-                     report_path: str):
+                     report_path: str, keep_label: str = "Keep", other_label: str = "Other"):
         """
         Display summary statistics using ANSI box-drawing characters.
 
@@ -351,6 +353,8 @@ class ANSIProgressUI:
             unique_other_mb: Size of unique files on other drive in MB
             unique_other_count: Count of unique files on other drive
             report_path: Path to the generated report file
+            keep_label: Label for keep drive (default: "Keep")
+            other_label: Label for other drive (default: "Other")
         """
         # Box drawing characters
         top_left = "╔"
@@ -373,8 +377,8 @@ class ANSIProgressUI:
         # Data rows
         rows = [
             ("Duplicates", str(duplicates_count), f"{duplicates_mb:.2f}"),
-            ("Unique (Keep)", str(unique_keep_count), f"{unique_keep_mb:.2f}"),
-            ("Unique (Other)", str(unique_other_count), f"{unique_other_mb:.2f}"),
+            (f"Unique in {keep_label}", str(unique_keep_count), f"{unique_keep_mb:.2f}"),
+            (f"Unique in {other_label}", str(unique_other_count), f"{unique_other_mb:.2f}"),
         ]
 
         # Build box

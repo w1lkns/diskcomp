@@ -118,6 +118,125 @@ class TestDuplicateClassifier(unittest.TestCase):
         assert 'unique_in_keep_count' in classification['summary'], "Should have unique_in_keep_count"
         assert 'unique_in_other_count' in classification['summary'], "Should have unique_in_other_count"
 
+    def test_unique_in_keep_size_mb_nonzero(self):
+        """Test that unique_in_keep_size_mb is correctly calculated and non-zero."""
+        keep_file = FileRecord(
+            path="/keep/unique.txt",
+            rel_path="unique.txt",
+            size_bytes=1048576,  # 1 MB
+            hash="unique123",
+            mtime=0,
+            error=None
+        )
+        keep_result = ScanResult(
+            drive_path="/keep",
+            file_count=1,
+            total_size_bytes=1048576,
+            files=[keep_file],
+            errors=[],
+            skipped_noise_count=0
+        )
+        other_result = ScanResult(
+            drive_path="/other",
+            file_count=0,
+            total_size_bytes=0,
+            files=[],
+            errors=[],
+            skipped_noise_count=0
+        )
+
+        classifier = DuplicateClassifier(keep_result, other_result)
+        classification = classifier.classify()
+
+        # Verify unique_in_keep_size_mb is greater than 0
+        assert classification['summary']['unique_in_keep_size_mb'] > 0, \
+            f"unique_in_keep_size_mb should be > 0, got {classification['summary']['unique_in_keep_size_mb']}"
+        # Expected: 1048576 bytes = 1.0 MB
+        assert classification['summary']['unique_in_keep_count'] == 1
+        assert classification['summary']['unique_in_keep_size_mb'] == 1.0
+
+    def test_unique_in_other_size_mb_nonzero(self):
+        """Test that unique_in_other_size_mb is correctly calculated and non-zero."""
+        other_file = FileRecord(
+            path="/other/unique.txt",
+            rel_path="unique.txt",
+            size_bytes=2097152,  # 2 MB
+            hash="unique456",
+            mtime=0,
+            error=None
+        )
+        keep_result = ScanResult(
+            drive_path="/keep",
+            file_count=0,
+            total_size_bytes=0,
+            files=[],
+            errors=[],
+            skipped_noise_count=0
+        )
+        other_result = ScanResult(
+            drive_path="/other",
+            file_count=1,
+            total_size_bytes=2097152,
+            files=[other_file],
+            errors=[],
+            skipped_noise_count=0
+        )
+
+        classifier = DuplicateClassifier(keep_result, other_result)
+        classification = classifier.classify()
+
+        # Verify unique_in_other_size_mb is greater than 0
+        assert classification['summary']['unique_in_other_size_mb'] > 0, \
+            f"unique_in_other_size_mb should be > 0, got {classification['summary']['unique_in_other_size_mb']}"
+        assert classification['summary']['unique_in_other_count'] == 1
+        assert classification['summary']['unique_in_other_size_mb'] == 2.0
+
+    def test_unique_sizes_match_file_sum(self):
+        """Test that summary unique sizes match sum of individual file sizes."""
+        keep_files = [
+            FileRecord(
+                path="/keep/file1.txt",
+                rel_path="file1.txt",
+                size_bytes=1048576,  # 1 MB
+                hash="unique1",
+                mtime=0,
+                error=None
+            ),
+            FileRecord(
+                path="/keep/file2.txt",
+                rel_path="file2.txt",
+                size_bytes=2097152,  # 2 MB
+                hash="unique2",
+                mtime=0,
+                error=None
+            )
+        ]
+        keep_result = ScanResult(
+            drive_path="/keep",
+            file_count=2,
+            total_size_bytes=3145728,
+            files=keep_files,
+            errors=[],
+            skipped_noise_count=0
+        )
+        other_result = ScanResult(
+            drive_path="/other",
+            file_count=0,
+            total_size_bytes=0,
+            files=[],
+            errors=[],
+            skipped_noise_count=0
+        )
+
+        classifier = DuplicateClassifier(keep_result, other_result)
+        classification = classifier.classify()
+
+        # Sum of individual unique_in_keep file sizes
+        total_size_mb = sum(item['size_mb'] for item in classification['unique_in_keep'])
+        # Should match the summary size
+        assert abs(total_size_mb - classification['summary']['unique_in_keep_size_mb']) < 0.01, \
+            f"Summary size {classification['summary']['unique_in_keep_size_mb']} should match sum of files {total_size_mb}"
+
 
 class TestReportWriter(unittest.TestCase):
     """Test suite for ReportWriter."""

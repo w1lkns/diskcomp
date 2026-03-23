@@ -153,6 +153,23 @@ class TestRichProgressUI(unittest.TestCase):
         )
         ui.close()
 
+    def test_show_summary_with_custom_labels(self):
+        """Test show_summary method with custom labels."""
+        ui = RichProgressUI()
+        # Should not crash with custom labels
+        ui.show_summary(
+            duplicates_mb=100.5,
+            duplicates_count=42,
+            unique_keep_mb=200.0,
+            unique_keep_count=100,
+            unique_other_mb=150.0,
+            unique_other_count=75,
+            report_path="/tmp/report.csv",
+            keep_label="Drive A",
+            other_label="Drive B"
+        )
+        ui.close()
+
     def test_close(self):
         """Test close method."""
         ui = RichProgressUI()
@@ -258,6 +275,30 @@ class TestANSIProgressUI(unittest.TestCase):
             any(char in output for char in ["╔", "╚", "║", "═"]),
             "Should contain box-drawing characters"
         )
+
+    def test_show_summary_with_custom_labels(self):
+        """Test show_summary prints custom labels correctly."""
+        ui = ANSIProgressUI()
+        f = io.StringIO()
+        with redirect_stdout(f):
+            ui.show_summary(
+                duplicates_mb=100.5,
+                duplicates_count=42,
+                unique_keep_mb=200.0,
+                unique_keep_count=100,
+                unique_other_mb=150.0,
+                unique_other_count=75,
+                report_path="/tmp/report.csv",
+                keep_label="MyDrive",
+                other_label="ExternalDrive"
+            )
+        output = f.getvalue()
+        # Check for custom labels
+        self.assertIn("Unique in MyDrive", output, "Should show custom keep label")
+        self.assertIn("Unique in ExternalDrive", output, "Should show custom other label")
+        # Check for key stats
+        self.assertIn("100.5", output, "Should show duplicates MB")
+        self.assertIn("/tmp/report.csv", output, "Should show report path")
 
     def test_close(self):
         """Test close method (should be no-op)."""

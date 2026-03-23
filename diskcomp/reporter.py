@@ -116,6 +116,11 @@ class DuplicateClassifier:
         unique_in_other = []
         unique_in_keep = []
 
+        # Track total sizes in bytes for accurate summary calculation
+        duplicate_size_bytes = 0
+        unique_in_other_size_bytes = 0
+        unique_in_keep_size_bytes = 0
+
         # Process files in other drive
         for hash_val, records in other_hash_map.items():
             if hash_val in keep_hash_map:
@@ -129,6 +134,7 @@ class DuplicateClassifier:
                         'size_mb': round(other_rec.size_bytes / (1024 ** 2), 2),
                         'hash': hash_val,
                     })
+                    duplicate_size_bytes += other_rec.size_bytes
             else:
                 # Unique in other
                 for other_rec in records:
@@ -139,6 +145,7 @@ class DuplicateClassifier:
                         'size_mb': round(other_rec.size_bytes / (1024 ** 2), 2),
                         'hash': hash_val,
                     })
+                    unique_in_other_size_bytes += other_rec.size_bytes
 
         # Process files in keep drive that aren't in other drive
         for hash_val, records in keep_hash_map.items():
@@ -152,11 +159,12 @@ class DuplicateClassifier:
                         'size_mb': round(keep_rec.size_bytes / (1024 ** 2), 2),
                         'hash': hash_val,
                     })
+                    unique_in_keep_size_bytes += keep_rec.size_bytes
 
-        # Calculate summary statistics
-        duplicate_size_mb = sum(item['size_mb'] for item in duplicates)
-        unique_in_keep_size_mb = sum(item['size_mb'] for item in unique_in_keep)
-        unique_in_other_size_mb = sum(item['size_mb'] for item in unique_in_other)
+        # Calculate summary statistics (convert bytes to MB for summary)
+        duplicate_size_mb = duplicate_size_bytes / (1024 ** 2)
+        unique_in_keep_size_mb = unique_in_keep_size_bytes / (1024 ** 2)
+        unique_in_other_size_mb = unique_in_other_size_bytes / (1024 ** 2)
 
         return {
             'duplicates': duplicates,
