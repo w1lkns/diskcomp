@@ -94,6 +94,7 @@ class RichProgressUI:
         if not self.progress_context:
             self.progress_context = self.progress.__enter__()
 
+        self._scan_total_files = 0
         self.scan_task_id = self.progress_context.add_task(
             f"[cyan]→ Scanning {drive_path}...",
             total=None
@@ -108,9 +109,10 @@ class RichProgressUI:
             file_count: Number of files found in this folder
         """
         if self.progress_context and self.scan_task_id is not None:
+            self._scan_total_files = getattr(self, '_scan_total_files', 0) + file_count
             self.progress_context.update(
                 self.scan_task_id,
-                description=f"[green]✓[/green] {file_count} files from {folder_path}"
+                description=f"[cyan]→[/cyan] Scanning... {self._scan_total_files:,} files | [dim]{folder_path}[/dim]"
             )
 
     def start_hash(self, total_files: int):
@@ -271,7 +273,12 @@ class ANSIProgressUI:
         Args:
             drive_path: Path to the drive being scanned
         """
-        print(f"{colored(ARROW, CYAN)} Scanning {drive_path}...")
+        import sys as _sys
+        self._scan_total_files = 0
+        if _sys.stdout.isatty():
+            print(f"\r  {colored(ARROW, CYAN)} Scanning {drive_path}...".ljust(78), end='', flush=True)
+        else:
+            print(f"{colored(ARROW, CYAN)} Scanning {drive_path}...")
 
     def on_folder_done(self, folder_path: str, file_count: int):
         """
@@ -281,7 +288,15 @@ class ANSIProgressUI:
             folder_path: Path to the completed folder
             file_count: Number of files found in this folder
         """
-        print(f"{colored(TICK, GREEN)} {file_count} files from {folder_path}")
+        import sys as _sys
+        self._scan_total_files = getattr(self, '_scan_total_files', 0) + file_count
+        if _sys.stdout.isatty():
+            # Truncate long folder paths to keep line within terminal width
+            short_path = folder_path if len(folder_path) <= 50 else "…" + folder_path[-49:]
+            line = f"  {colored(ARROW, CYAN)} Scanning... {self._scan_total_files:,} files | {short_path}"
+            print(f"\r{line.ljust(78)}", end='', flush=True)
+        else:
+            print(f"{colored(TICK, GREEN)} {file_count} files from {folder_path}")
 
     def start_hash(self, total_files: int):
         """
@@ -290,6 +305,9 @@ class ANSIProgressUI:
         Args:
             total_files: Total number of files to hash
         """
+        import sys as _sys
+        if _sys.stdout.isatty():
+            print()  # end the in-place scan line
         print(f"{colored(ARROW, CYAN)} Hashing {total_files} files...")
 
     def on_file_hashed(self, current: int, total: int, speed_mbps: float, eta_secs: Optional[int] = None):
