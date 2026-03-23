@@ -12,8 +12,9 @@ Rich is available).
 """
 
 import shutil
-from typing import Union, Optional
+from typing import Union, Optional, List
 from diskcomp.ansi_codes import CYAN, GREEN, RED, YELLOW, RESET, BOLD, ARROW, TICK, CROSS, colored, progress_bar, format_speed, format_eta
+from diskcomp.types import FileRecord
 
 # Graceful Rich import with fallback
 try:
@@ -277,6 +278,37 @@ class RichProgressUI:
             self.console.print(f"  [bold]{idx}[/bold])  {folder}")
         self.console.print()
 
+    def display_file_list(self, files: List[FileRecord], flagged_set: set) -> None:
+        """
+        Display a numbered list of files for flagging.
+
+        Renders a formatted list with file indices, paths, sizes, and flagged status.
+        Styled with Rich formatting (bold indices, dim text for flagged files).
+        Includes blank line after list.
+
+        Args:
+            files: List of FileRecord objects to display
+            flagged_set: Set of flagged file paths (for marking status)
+
+        Example:
+            display_file_list([FileRecord(path='a.txt', size_bytes=5242880), ...], {'a.txt'})
+            Output:
+              Files to protect (flag these before deletion)
+              1) /path/to/a.txt (5.0 MB)
+              2) /path/to/b.txt (2.5 MB) [flagged]
+        """
+        self.console.print()
+        self.console.print("[bold cyan]Files to protect (flag these before deletion)[/bold cyan]")
+        for idx, file_record in enumerate(files, 1):
+            size_mb = file_record.size_bytes / (1024 * 1024)
+            is_flagged = file_record.path in flagged_set
+
+            if is_flagged:
+                self.console.print(f"  [bold]{idx}[/bold])  [dim]{file_record.path} ({size_mb:.1f} MB) [flagged][/dim]")
+            else:
+                self.console.print(f"  [bold]{idx}[/bold])  {file_record.path} ({size_mb:.1f} MB)")
+        self.console.print()
+
     def close(self):
         """Close the progress context."""
         if self.progress_context:
@@ -498,6 +530,37 @@ class ANSIProgressUI:
         print(f"  {BOLD}{CYAN}Folders to skip{RESET}")
         for idx, folder in enumerate(folders, 1):
             print(f"    {BOLD}{idx}{RESET})  {folder}")
+        print()
+
+    def display_file_list(self, files: List[FileRecord], flagged_set: set) -> None:
+        """
+        Display a numbered list of files for flagging.
+
+        Renders a formatted list with file indices, paths, sizes, and flagged status.
+        Styled with ANSI codes (bold indices, dim text for flagged files).
+        Includes blank line after list.
+
+        Args:
+            files: List of FileRecord objects to display
+            flagged_set: Set of flagged file paths (for marking status)
+
+        Example:
+            display_file_list([FileRecord(path='a.txt', size_bytes=5242880), ...], {'a.txt'})
+            Output:
+              Files to protect (flag these before deletion)
+              1) /path/to/a.txt (5.0 MB)
+              2) /path/to/b.txt (2.5 MB) [flagged]
+        """
+        print()
+        print(f"  {BOLD}{CYAN}Files to protect (flag these before deletion){RESET}")
+        for idx, file_record in enumerate(files, 1):
+            size_mb = file_record.size_bytes / (1024 * 1024)
+            is_flagged = file_record.path in flagged_set
+
+            if is_flagged:
+                print(f"    {BOLD}{idx}{RESET})  {file_record.path} ({size_mb:.1f} MB) [flagged]")
+            else:
+                print(f"    {BOLD}{idx}{RESET})  {file_record.path} ({size_mb:.1f} MB)")
         print()
 
     def close(self):
