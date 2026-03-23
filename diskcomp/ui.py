@@ -11,6 +11,7 @@ logic (scanner and hasher modules can accept UI callbacks without knowing whethe
 Rich is available).
 """
 
+import shutil
 from typing import Union, Optional
 from diskcomp.ansi_codes import CYAN, GREEN, RED, YELLOW, RESET, BOLD, ARROW, TICK, CROSS, colored, progress_bar, format_speed, format_eta
 
@@ -319,7 +320,11 @@ class ANSIProgressUI:
         if eta_secs is not None and eta_secs > 0:
             output += f"  ETA {format_eta(eta_secs)}"
 
-        print(f"\r  {output.ljust(76)}", end='', flush=True)
+        term_width = shutil.get_terminal_size(fallback=(80, 24)).columns
+        line = f"  {output}"
+        if len(line) > term_width:
+            line = line[:term_width]
+        print(f"\r{line}\033[K", end='', flush=True)
         if current >= total:
             print()  # end the progress line
 

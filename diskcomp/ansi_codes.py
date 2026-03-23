@@ -57,19 +57,19 @@ def progress_bar(current: int, total: int, width: int = 40) -> str:
         width: Width of the bar in characters (default 40)
 
     Returns:
-        A string like "[████████░░░░░░░░░░░░░░░░░░░░░░░░] 50%"
+        A string like "[========--------------------------------] 50%"
 
     Example:
         >>> progress_bar(50, 100)
-        '[████████████████████░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░] 50%'
+        '[====================--------------------] 50%'
     """
     if total <= 0:
         filled_width = 0
     else:
         filled_width = int((current / total) * width)
 
-    filled = "█" * filled_width
-    empty = "░" * (width - filled_width)
+    filled = "=" * filled_width
+    empty = "-" * (width - filled_width)
     percentage = int((current / total) * 100) if total > 0 else 0
 
     return f"[{filled}{empty}] {percentage}%"
