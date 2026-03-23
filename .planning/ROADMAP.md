@@ -141,7 +141,7 @@ Plans:
 **Success Criteria**:
   1. PyInstaller builds a single-file binary for macOS, Linux, and Windows via CI
   2. Binaries attached to GitHub Releases automatically on version tag
-  3. Homebrew formula in a `homebrew-diskcomp` tap: `brew install w1lkns/diskcomp/diskcomp`
+  3. Homebrew formula in a `homebrew-diskcomp` tap: `brew tap w1lkns/diskcomp` then `brew install diskcomp`
   4. README updated with binary download and `brew install` as primary install paths
 
 ---
