@@ -112,6 +112,7 @@ Plans:
 | 5. Packaging + Distribution | 1/1 | Complete    | 2026-03-23 |
 | 6. Performance | 3/3 | Complete    | 2026-03-23 |
 | 7. UX Polish + Single-Drive | 1/9 | In Progress | 2026-03-23 |
+| 7.1. UX Flow Improvements | 4/5 | In Progress | 2026-03-23 |
 | 8. Standalone Distribution | —   | Planned     | — |
 
 ### Phase 6: Performance
@@ -176,7 +177,7 @@ Plans:
 - [x] 07.1-01-PLAN.md — Input Validation & State Preservation (NavigationContext @dataclass, prompt_confirm helper) ✓ COMPLETE
 - [x] 07.1-02-PLAN.md — Folder Skip Selection (get_unique_parent_folders, parse_selection_input, show_folder_selection, display_folder_list) ✓ COMPLETE
 - [x] 07.1-03-PLAN.md — File Flagging & Deletion Filtering (extract_duplicate_files, display_file_list, show_file_flagging, filter_candidates_by_flags) ✓ COMPLETE
-- [ ] 07.1-04-PLAN.md — Back Navigation Integration (TBD - Wave 4)
+- [x] 07.1-04-PLAN.md — Back Navigation Integration (run_post_scan_menu, orchestrate_deletion, batch_mode 'b' key, integration tests) ✓ COMPLETE
 - [ ] 07.1-05-PLAN.md — Constrained Input Throughout (TBD - Wave 4)
 
 ### Phase 8: Standalone Distribution
@@ -212,3 +213,4 @@ Plans:
 *Phase 6 complete: 2026-03-23 — 187 tests passing, ≥5× speedup validated*
 *Phase 7 plans created: 2026-03-23 — 9 plans (summary table fix, --min-size, banner, wizard, plain-language summary, single-drive mode, action menu, NTFS callout, full integration)*
 *Phase 7 Plan 01 complete: 2026-03-23 — Summary table bug fix (unique file sizes, label parameters); 37 tests passing*
+*Phase 07.1 Plan 04 complete: 2026-03-23 — Back navigation integration (run_post_scan_menu hub, orchestrate_deletion wrapper, batch_mode 'b' key, 5 integration tests); 285 tests passing*
