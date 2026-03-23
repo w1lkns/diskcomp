@@ -191,3 +191,28 @@ class DeletionResult:
     aborted: bool
     undo_log_path: Optional[str]
     errors: List[str] = field(default_factory=list)
+
+
+@dataclass
+class NavigationContext:
+    """
+    Preserve workflow state across back/forward navigation.
+
+    Used by run_post_scan_menu() to keep scan results, folder selections, and file flags
+    intact when user navigates back from one menu to another. Prevents re-scanning/re-hashing
+    when user changes their mind.
+
+    Attributes:
+        scan_results: Classification dict from DuplicateClassifier.classify() (set after scan completes)
+        keep_path: Path to keep drive (or None)
+        other_path: Path to other drive (or None)
+        selected_folders_skip: Set of folder paths to exclude from deletion
+        flagged_files: Set of file paths marked "do not delete"
+        report_path: Path to saved report CSV/JSON (or None)
+    """
+    scan_results: Optional[Dict] = None
+    keep_path: Optional[str] = None
+    other_path: Optional[str] = None
+    selected_folders_skip: set = field(default_factory=set)
+    flagged_files: set = field(default_factory=set)
+    report_path: Optional[str] = None
