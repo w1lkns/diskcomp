@@ -7,7 +7,7 @@ from io import StringIO
 from diskcomp.cli import (
     parse_args, main, display_health_checks, _display_health_result,
     parse_size_value, show_first_run_menu, show_help_guide,
-    show_plain_language_summary, show_next_steps
+    show_plain_language_summary, show_next_steps, show_action_menu
 )
 from diskcomp.types import HealthCheckResult
 
@@ -799,6 +799,370 @@ class TestSingleDriveMode(unittest.TestCase):
 
             # Should fail with error code 1
             self.assertEqual(result, 1)
+
+
+class TestActionMenu(unittest.TestCase):
+    """Test suite for show_action_menu function (D-23, D-24)."""
+
+    @patch('diskcomp.cli.input')
+    def test_show_action_menu_option_1(self, mock_input):
+        """Test show_action_menu returns 'interactive' on input '1'."""
+        mock_input.return_value = '1'
+        result = show_action_menu()
+        self.assertEqual(result, 'interactive')
+
+    @patch('diskcomp.cli.input')
+    def test_show_action_menu_option_2(self, mock_input):
+        """Test show_action_menu returns 'batch' on input '2'."""
+        mock_input.return_value = '2'
+        result = show_action_menu()
+        self.assertEqual(result, 'batch')
+
+    @patch('diskcomp.cli.input')
+    def test_show_action_menu_option_3(self, mock_input):
+        """Test show_action_menu returns 'exit' on input '3'."""
+        mock_input.return_value = '3'
+        result = show_action_menu()
+        self.assertEqual(result, 'exit')
+
+    @patch('diskcomp.cli.input')
+    def test_show_action_menu_invalid_then_valid(self, mock_input):
+        """Test show_action_menu retries on invalid input then returns valid choice."""
+        mock_input.side_effect = ['0', '4', 'x', '2']
+        result = show_action_menu()
+        self.assertEqual(result, 'batch')
+        # Should have been called 4 times (3 invalid + 1 valid)
+        self.assertEqual(mock_input.call_count, 4)
+
+    @patch('diskcomp.cli.input')
+    def test_show_action_menu_whitespace_stripped(self, mock_input):
+        """Test show_action_menu handles whitespace in input."""
+        mock_input.return_value = '  3  '
+        result = show_action_menu()
+        self.assertEqual(result, 'exit')
+
+    @patch('sys.stdout', new_callable=StringIO)
+    @patch('diskcomp.cli.input')
+    def test_show_action_menu_displays_menu(self, mock_input, mock_stdout):
+        """Test show_action_menu displays the menu text."""
+        mock_input.return_value = '1'
+        show_action_menu()
+        output = mock_stdout.getvalue()
+        # Check for menu options
+        self.assertIn('What next?', output)
+        self.assertIn('Review and delete interactively', output)
+        self.assertIn('Batch delete', output)
+        self.assertIn('Exit', output)
+
+
+class TestActionMenuIntegration(unittest.TestCase):
+    """Test suite for action menu integration in main() flow."""
+
+    @patch('diskcomp.deletion.DeletionOrchestrator')
+    @patch('diskcomp.reporter.ReportReader')
+    @patch('diskcomp.cli.show_action_menu')
+    @patch('diskcomp.cli.show_next_steps')
+    @patch('diskcomp.cli.show_plain_language_summary')
+    @patch('diskcomp.cli.ReportWriter')
+    @patch('diskcomp.cli.DuplicateClassifier')
+    @patch('diskcomp.cli.FileHasher')
+    @patch('diskcomp.cli.FileScanner')
+    @patch('diskcomp.cli.display_health_checks')
+    @patch('diskcomp.cli.os.access')
+    @patch('diskcomp.cli.os.path.isdir')
+    @patch('diskcomp.cli.UIHandler')
+    def test_main_action_menu_interactive(
+            self, mock_ui_factory, mock_isdir, mock_access,
+            mock_display_health, mock_scanner_class, mock_hasher_class,
+            mock_classifier_class, mock_reporter_class, mock_summary,
+            mock_next_steps, mock_action_menu, mock_reader, mock_orchestrator):
+        """Test main() action menu interactive mode path."""
+        # Setup UI
+        mock_ui = MagicMock()
+        mock_ui_factory.create.return_value = mock_ui
+        mock_isdir.return_value = True
+        mock_access.return_value = True
+        mock_display_health.return_value = True
+
+        # Setup scanner
+        mock_scanner = MagicMock()
+        mock_scanner_class.return_value = mock_scanner
+        mock_scan_result = MagicMock()
+        mock_scan_result.files = []
+        mock_scanner.scan.return_value = mock_scan_result
+
+        # Setup classifier
+        mock_classifier = MagicMock()
+        mock_classifier_class.return_value = mock_classifier
+        classification = {
+            'summary': {
+                'duplicate_count': 5,
+                'duplicate_size_mb': 50.0,
+                'unique_in_keep_count': 10,
+                'unique_in_keep_size_mb': 100.0,
+                'unique_in_other_count': 20,
+                'unique_in_other_size_mb': 200.0,
+            },
+            'duplicates': [
+                {'action': 'DELETE_FROM_OTHER', 'other_path': '/path/file1', 'size_mb': 10.0, 'hash': 'abc123', 'keep_path': '/path/keep1'},
+            ],
+            'unique_in_keep': [],
+            'unique_in_other': [],
+        }
+        mock_classifier.classify.return_value = classification
+
+        # Setup reporter
+        mock_reporter = MagicMock()
+        mock_reporter.output_path = '/tmp/test-report.csv'
+        mock_reporter_class.return_value = mock_reporter
+
+        # Setup action menu to return 'interactive'
+        mock_action_menu.return_value = 'interactive'
+
+        # Setup ReportReader
+        mock_reader.load.return_value = [
+            {'action': 'DELETE_FROM_OTHER', 'other_path': '/path/file1', 'size_mb': 10.0, 'hash': 'abc123', 'keep_path': '/path/keep1'},
+        ]
+
+        # Setup DeletionOrchestrator
+        mock_orch = MagicMock()
+        mock_orchestrator.return_value = mock_orch
+        mock_result = MagicMock()
+        mock_result.files_deleted = 1
+        mock_result.space_freed_mb = 10.0
+        mock_result.errors = []
+        mock_result.undo_log_path = '/tmp/diskcomp-undo-20260323-120000.json'
+        mock_orch.interactive_mode.return_value = mock_result
+
+        # Mock input for scan confirmation
+        with patch('diskcomp.cli.input', side_effect=['y']):
+            args = parse_args(['--keep', '/mnt/keep', '--other', '/mnt/other'])
+            result = main(args)
+
+        # Verify
+        self.assertEqual(result, 0)
+        mock_action_menu.assert_called_once()
+        mock_orch.interactive_mode.assert_called_once()
+        mock_reader.load.assert_called_once_with('/tmp/test-report.csv')
+
+    @patch('diskcomp.deletion.DeletionOrchestrator')
+    @patch('diskcomp.reporter.ReportReader')
+    @patch('diskcomp.cli.show_action_menu')
+    @patch('diskcomp.cli.show_next_steps')
+    @patch('diskcomp.cli.show_plain_language_summary')
+    @patch('diskcomp.cli.ReportWriter')
+    @patch('diskcomp.cli.DuplicateClassifier')
+    @patch('diskcomp.cli.FileHasher')
+    @patch('diskcomp.cli.FileScanner')
+    @patch('diskcomp.cli.display_health_checks')
+    @patch('diskcomp.cli.os.access')
+    @patch('diskcomp.cli.os.path.isdir')
+    @patch('diskcomp.cli.UIHandler')
+    def test_main_action_menu_batch(
+            self, mock_ui_factory, mock_isdir, mock_access,
+            mock_display_health, mock_scanner_class, mock_hasher_class,
+            mock_classifier_class, mock_reporter_class, mock_summary,
+            mock_next_steps, mock_action_menu, mock_reader, mock_orchestrator):
+        """Test main() action menu batch mode path."""
+        # Setup UI
+        mock_ui = MagicMock()
+        mock_ui_factory.create.return_value = mock_ui
+        mock_isdir.return_value = True
+        mock_access.return_value = True
+        mock_display_health.return_value = True
+
+        # Setup scanner
+        mock_scanner = MagicMock()
+        mock_scanner_class.return_value = mock_scanner
+        mock_scan_result = MagicMock()
+        mock_scan_result.files = []
+        mock_scanner.scan.return_value = mock_scan_result
+
+        # Setup classifier
+        mock_classifier = MagicMock()
+        mock_classifier_class.return_value = mock_classifier
+        classification = {
+            'summary': {
+                'duplicate_count': 3,
+                'duplicate_size_mb': 30.0,
+                'unique_in_keep_count': 10,
+                'unique_in_keep_size_mb': 100.0,
+                'unique_in_other_count': 20,
+                'unique_in_other_size_mb': 200.0,
+            },
+            'duplicates': [
+                {'action': 'DELETE_FROM_OTHER', 'other_path': '/path/file1', 'size_mb': 10.0, 'hash': 'abc123', 'keep_path': '/path/keep1'},
+            ],
+            'unique_in_keep': [],
+            'unique_in_other': [],
+        }
+        mock_classifier.classify.return_value = classification
+
+        # Setup reporter
+        mock_reporter = MagicMock()
+        mock_reporter.output_path = '/tmp/test-report.csv'
+        mock_reporter_class.return_value = mock_reporter
+
+        # Setup action menu to return 'batch'
+        mock_action_menu.return_value = 'batch'
+
+        # Setup ReportReader
+        mock_reader.load.return_value = [
+            {'action': 'DELETE_FROM_OTHER', 'other_path': '/path/file1', 'size_mb': 10.0, 'hash': 'abc123', 'keep_path': '/path/keep1'},
+        ]
+
+        # Setup DeletionOrchestrator
+        mock_orch = MagicMock()
+        mock_orchestrator.return_value = mock_orch
+        mock_result = MagicMock()
+        mock_result.files_deleted = 1
+        mock_result.space_freed_mb = 10.0
+        mock_result.errors = []
+        mock_result.undo_log_path = '/tmp/diskcomp-undo-20260323-120000.json'
+        mock_orch.batch_mode.return_value = mock_result
+
+        # Mock input for scan confirmation
+        with patch('diskcomp.cli.input', side_effect=['y']):
+            args = parse_args(['--keep', '/mnt/keep', '--other', '/mnt/other'])
+            result = main(args)
+
+        # Verify
+        self.assertEqual(result, 0)
+        mock_action_menu.assert_called_once()
+        mock_orch.batch_mode.assert_called_once()
+        mock_reader.load.assert_called_once_with('/tmp/test-report.csv')
+
+    @patch('diskcomp.cli.show_action_menu')
+    @patch('diskcomp.cli.show_next_steps')
+    @patch('diskcomp.cli.show_plain_language_summary')
+    @patch('diskcomp.cli.ReportWriter')
+    @patch('diskcomp.cli.DuplicateClassifier')
+    @patch('diskcomp.cli.FileHasher')
+    @patch('diskcomp.cli.FileScanner')
+    @patch('diskcomp.cli.display_health_checks')
+    @patch('diskcomp.cli.os.access')
+    @patch('diskcomp.cli.os.path.isdir')
+    @patch('diskcomp.cli.UIHandler')
+    def test_main_action_menu_exit(
+            self, mock_ui_factory, mock_isdir, mock_access,
+            mock_display_health, mock_scanner_class, mock_hasher_class,
+            mock_classifier_class, mock_reporter_class, mock_summary,
+            mock_next_steps, mock_action_menu):
+        """Test main() action menu exit path (no deletion)."""
+        # Setup UI
+        mock_ui = MagicMock()
+        mock_ui_factory.create.return_value = mock_ui
+        mock_isdir.return_value = True
+        mock_access.return_value = True
+        mock_display_health.return_value = True
+
+        # Setup scanner
+        mock_scanner = MagicMock()
+        mock_scanner_class.return_value = mock_scanner
+        mock_scan_result = MagicMock()
+        mock_scan_result.files = []
+        mock_scanner.scan.return_value = mock_scan_result
+
+        # Setup classifier
+        mock_classifier = MagicMock()
+        mock_classifier_class.return_value = mock_classifier
+        classification = {
+            'summary': {
+                'duplicate_count': 2,
+                'duplicate_size_mb': 20.0,
+                'unique_in_keep_count': 10,
+                'unique_in_keep_size_mb': 100.0,
+                'unique_in_other_count': 20,
+                'unique_in_other_size_mb': 200.0,
+            },
+            'duplicates': [],
+            'unique_in_keep': [],
+            'unique_in_other': [],
+        }
+        mock_classifier.classify.return_value = classification
+
+        # Setup reporter
+        mock_reporter = MagicMock()
+        mock_reporter.output_path = '/tmp/test-report.csv'
+        mock_reporter_class.return_value = mock_reporter
+
+        # Setup action menu to return 'exit'
+        mock_action_menu.return_value = 'exit'
+
+        # Mock input for scan confirmation
+        with patch('diskcomp.cli.input', side_effect=['y']):
+            args = parse_args(['--keep', '/mnt/keep', '--other', '/mnt/other'])
+            result = main(args)
+
+        # Verify
+        self.assertEqual(result, 0)
+        mock_action_menu.assert_called_once()
+        # UI should be closed (no deletion)
+        mock_ui.close.assert_called_once()
+
+    @patch('diskcomp.cli.show_action_menu')
+    @patch('diskcomp.cli.show_next_steps')
+    @patch('diskcomp.cli.show_plain_language_summary')
+    @patch('diskcomp.cli.ReportWriter')
+    @patch('diskcomp.cli.DuplicateClassifier')
+    @patch('diskcomp.cli.FileHasher')
+    @patch('diskcomp.cli.FileScanner')
+    @patch('diskcomp.cli.display_health_checks')
+    @patch('diskcomp.cli.os.access')
+    @patch('diskcomp.cli.os.path.isdir')
+    @patch('diskcomp.cli.UIHandler')
+    def test_main_no_action_menu_zero_duplicates(
+            self, mock_ui_factory, mock_isdir, mock_access,
+            mock_display_health, mock_scanner_class, mock_hasher_class,
+            mock_classifier_class, mock_reporter_class, mock_summary,
+            mock_next_steps, mock_action_menu):
+        """Test main() does NOT show action menu when duplicate_count is 0 (D-24)."""
+        # Setup UI
+        mock_ui = MagicMock()
+        mock_ui_factory.create.return_value = mock_ui
+        mock_isdir.return_value = True
+        mock_access.return_value = True
+        mock_display_health.return_value = True
+
+        # Setup scanner
+        mock_scanner = MagicMock()
+        mock_scanner_class.return_value = mock_scanner
+        mock_scan_result = MagicMock()
+        mock_scan_result.files = []
+        mock_scanner.scan.return_value = mock_scan_result
+
+        # Setup classifier with ZERO duplicates
+        mock_classifier = MagicMock()
+        mock_classifier_class.return_value = mock_classifier
+        classification = {
+            'summary': {
+                'duplicate_count': 0,
+                'duplicate_size_mb': 0.0,
+                'unique_in_keep_count': 10,
+                'unique_in_keep_size_mb': 100.0,
+                'unique_in_other_count': 20,
+                'unique_in_other_size_mb': 200.0,
+            },
+            'duplicates': [],
+            'unique_in_keep': [],
+            'unique_in_other': [],
+        }
+        mock_classifier.classify.return_value = classification
+
+        # Setup reporter
+        mock_reporter = MagicMock()
+        mock_reporter.output_path = '/tmp/test-report.csv'
+        mock_reporter_class.return_value = mock_reporter
+
+        # Mock input for scan confirmation
+        with patch('diskcomp.cli.input', side_effect=['y']):
+            args = parse_args(['--keep', '/mnt/keep', '--other', '/mnt/other'])
+            result = main(args)
+
+        # Verify
+        self.assertEqual(result, 0)
+        # Action menu should NOT have been called because duplicate_count == 0
+        mock_action_menu.assert_not_called()
 
 
 if __name__ == '__main__':

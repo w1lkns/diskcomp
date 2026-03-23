@@ -510,6 +510,38 @@ def show_next_steps(report_path: str):
     print()
 
 
+def show_action_menu():
+    """
+    Display post-scan action menu (D-23).
+
+    Menu options:
+      1) Review and delete interactively (per-file confirmation)
+      2) Batch delete (dry-run + type DELETE to confirm)
+      3) Exit (report saved, no deletion)
+
+    Returns:
+        One of: 'interactive', 'batch', 'exit'
+    """
+    while True:
+        menu_text = """
+What next?
+  1) Review and delete interactively
+  2) Batch delete (preview + confirm)
+  3) Exit (report saved)
+        """.strip()
+        print(menu_text)
+        print()
+
+        choice = input("Select (1-3): ").strip()
+
+        if choice in ['1', '2', '3']:
+            mapping = {'1': 'interactive', '2': 'batch', '3': 'exit'}
+            return mapping[choice]
+        else:
+            print("Invalid choice. Please enter 1, 2, or 3.")
+            print()
+
+
 def main(args=None):
     """
     Main orchestration function.
@@ -733,6 +765,38 @@ def main(args=None):
             show_plain_language_summary(summary, mode='single_drive', keep_label=drive_label, other_label=drive_label)
             show_next_steps(writer.output_path)
 
+            # Show action menu only if duplicates found (D-24)
+            if summary.get('duplicate_count', 0) > 0:
+                action = show_action_menu()
+
+                if action == 'interactive' or action == 'batch':
+                    # Load candidates from report and launch deletion workflow
+                    from diskcomp.reporter import ReportReader
+                    from diskcomp.deletion import DeletionOrchestrator
+
+                    candidates = ReportReader.load(writer.output_path)
+
+                    if candidates:
+                        orchestrator = DeletionOrchestrator(candidates, ui, writer.output_path)
+
+                        if action == 'interactive':
+                            result = orchestrator.interactive_mode()
+                        else:
+                            result = orchestrator.batch_mode()
+
+                        # Display result summary
+                        print(f"\nDeletion complete: {result.files_deleted} deleted, {result.space_freed_mb:.2f} MB freed", file=sys.stderr)
+                        if result.errors:
+                            for error in result.errors:
+                                print(f"Error: {error}", file=sys.stderr)
+
+                        # Show undo log path
+                        if result.undo_log_path:
+                            print(f"Undo log: {result.undo_log_path}", file=sys.stderr)
+
+                    else:
+                        print("No candidates to delete.", file=sys.stderr)
+
             ui.close()
             return 0
 
@@ -881,6 +945,38 @@ def main(args=None):
 
         # Show next steps (D-18)
         show_next_steps(writer.output_path)
+
+        # Show action menu only if duplicates found (D-24)
+        if summary.get('duplicate_count', 0) > 0:
+            action = show_action_menu()
+
+            if action == 'interactive' or action == 'batch':
+                # Load candidates from report and launch deletion workflow
+                from diskcomp.reporter import ReportReader
+                from diskcomp.deletion import DeletionOrchestrator
+
+                candidates = ReportReader.load(writer.output_path)
+
+                if candidates:
+                    orchestrator = DeletionOrchestrator(candidates, ui, writer.output_path)
+
+                    if action == 'interactive':
+                        result = orchestrator.interactive_mode()
+                    else:
+                        result = orchestrator.batch_mode()
+
+                    # Display result summary
+                    print(f"\nDeletion complete: {result.files_deleted} deleted, {result.space_freed_mb:.2f} MB freed", file=sys.stderr)
+                    if result.errors:
+                        for error in result.errors:
+                            print(f"Error: {error}", file=sys.stderr)
+
+                    # Show undo log path
+                    if result.undo_log_path:
+                        print(f"Undo log: {result.undo_log_path}", file=sys.stderr)
+
+                else:
+                    print("No candidates to delete.", file=sys.stderr)
 
         # Close UI
         ui.close()
