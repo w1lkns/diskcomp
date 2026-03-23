@@ -57,10 +57,10 @@ _(All v1.0 requirements validated — see Validated section)_
 
 | Decision | Rationale | Outcome |
 |----------|-----------|---------|
-| SHA256 for dedup | Cryptographically collision-resistant; slower than size/name but no false positives | — Pending |
-| Zero mandatory deps | Widest reach — users shouldn't need to pip install just to run a script | — Pending |
-| rich as optional dep | Beautiful UI when available; graceful ASCII fallback when not | — Pending |
-| Undo log over recycle bin | Cross-platform recycle bin APIs are unreliable; log-then-delete is simpler and auditable | — Pending |
+| SHA256 for dedup | Cryptographically collision-resistant; slower than size/name but no false positives | Validated — zero false positives across all test suites; Phase 6 will add size-filter pre-pass to recover speed |
+| Zero mandatory deps | Widest reach — users shouldn't need to pip install just to run a script | Validated — ships as single `diskcomp.py` with no required deps; pip package also zero-dep |
+| rich as optional dep | Beautiful UI when available; graceful ASCII fallback when not | Validated — both paths tested and working; CI runs without rich installed |
+| Undo log over recycle bin | Cross-platform recycle bin APIs are unreliable; log-then-delete is simpler and auditable | Validated — JSON undo log works on macOS, Linux, and Windows; no platform-specific code needed |
 
 ---
 *Last updated: 2026-03-22 after Phase 5 completion — v1.0 milestone complete*
