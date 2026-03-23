@@ -67,6 +67,7 @@ Plans:
 - [x] 03-01-PLAN.md — Health Checks (space, filesystem, SMART, read-only detection, benchmarker) ✓ COMPLETE
 - [x] 03-02-PLAN.md — Interactive Drive Picker (enumerate drives, user selection, input validation) ✓ COMPLETE
 - [x] 03-03-PLAN.md — CLI Integration (no-args mode, health checks before scan, user confirmation) ✓ COMPLETE
+- [ ] TODO: Investigate 03-04-PLAN.md + 03-04-SUMMARY.md — untracked gap-closure plan found in planning dir, not listed here; reconcile before Phase 6
 
 ### Phase 4: Guided Deletion
 **Goal**: Turn the report into action — safely. Two modes, undo log, zero surprises.
