@@ -426,3 +426,79 @@ class DeletionOrchestrator:
                 undo_log_path=self.undo_log.file_path if self.undo_log.entries else None,
                 errors=errors
             )
+
+
+def filter_candidates_by_flags(results: dict, flagged_files: set) -> dict:
+    """
+    Remove flagged files from deletion candidate list.
+
+    Takes the output from DuplicateClassifier.classify() and removes any files
+    whose paths are in the flagged_files set. This ensures that flagged files
+    are never included in deletion operations, even if they appear in duplicate
+    or unique file categories.
+
+    Args:
+        results: Classification dict from DuplicateClassifier.classify() with structure:
+                 {
+                     'duplicates': [{'keep_path': str, 'other_path': str, ...}, ...],
+                     'unique_in_keep': [{'keep_path': str, ...}, ...],
+                     'unique_in_other': [{'other_path': str, ...}, ...],
+                     'summary': {...}
+                 }
+        flagged_files: Set of file paths to exclude from deletion (e.g., {'a.txt', 'b.txt'})
+
+    Returns:
+        New classification dict with the same structure, but with all entries containing
+        flagged files removed. Empty groups are removed from the results. If flagged_files
+        is empty, returns results unchanged (no filtering applied).
+
+    Examples:
+        >>> results = {
+        ...     'duplicates': [
+        ...         {'keep_path': 'a.txt', 'other_path': 'a_dup.txt', ...},
+        ...         {'keep_path': 'b.txt', 'other_path': 'b_dup.txt', ...}
+        ...     ],
+        ...     'unique_in_keep': [],
+        ...     'unique_in_other': [],
+        ...     'summary': {...}
+        ... }
+        >>> filter_candidates_by_flags(results, {'a.txt'})
+        {
+            'duplicates': [{'keep_path': 'b.txt', 'other_path': 'b_dup.txt', ...}],
+            'unique_in_keep': [],
+            'unique_in_other': [],
+            'summary': {...}
+        }
+    """
+    if not results or not flagged_files:
+        return results
+
+    # Create a new results dict with filtered entries
+    filtered = {
+        'duplicates': [],
+        'unique_in_keep': [],
+        'unique_in_other': [],
+        'summary': results.get('summary', {})
+    }
+
+    # Filter duplicates: keep only if neither keep_path nor other_path is flagged
+    for item in results.get('duplicates', []):
+        keep_path = item.get('keep_path')
+        other_path = item.get('other_path')
+        # Include this item only if both paths are NOT flagged
+        if keep_path not in flagged_files and other_path not in flagged_files:
+            filtered['duplicates'].append(item)
+
+    # Filter unique_in_keep: keep only if keep_path is NOT flagged
+    for item in results.get('unique_in_keep', []):
+        keep_path = item.get('keep_path')
+        if keep_path not in flagged_files:
+            filtered['unique_in_keep'].append(item)
+
+    # Filter unique_in_other: keep only if other_path is NOT flagged
+    for item in results.get('unique_in_other', []):
+        other_path = item.get('other_path')
+        if other_path not in flagged_files:
+            filtered['unique_in_other'].append(item)
+
+    return filtered
