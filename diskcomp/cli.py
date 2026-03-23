@@ -6,6 +6,7 @@ together the scanner, hasher, and reporter modules into a complete workflow.
 """
 
 import argparse
+import glob
 import json
 import os
 import sys
@@ -350,6 +351,69 @@ def _show_undo_log(log_file_path: str) -> int:
         return 1
 
 
+def find_recent_reports(max_results: int = 8) -> list:
+    """
+    Find recent diskcomp report files in the home directory and current directory.
+
+    Searches for diskcomp-report-*.csv and diskcomp-report-*.json files,
+    sorted by modification time (most recent first).
+
+    Args:
+        max_results: Maximum number of results to return
+
+    Returns:
+        List of dicts with 'path' and 'mtime' keys, sorted newest first
+    """
+    search_dirs = [os.path.expanduser('~'), os.getcwd()]
+    seen = set()
+    found = []
+
+    for search_dir in search_dirs:
+        for pattern in ['diskcomp-report-*.csv', 'diskcomp-report-*.json']:
+            matches = glob.glob(os.path.join(search_dir, pattern))
+            for path in matches:
+                abs_path = os.path.abspath(path)
+                if abs_path not in seen and os.path.isfile(abs_path):
+                    seen.add(abs_path)
+                    found.append({'path': abs_path, 'mtime': os.path.getmtime(abs_path)})
+
+    found.sort(key=lambda x: x['mtime'], reverse=True)
+    return found[:max_results]
+
+
+def show_report_picker():
+    """
+    Show a numbered list of recent reports and let user pick one.
+
+    Returns:
+        Selected report path, or None if cancelled
+    """
+    reports = find_recent_reports()
+
+    if not reports:
+        print("\nNo previous diskcomp reports found in home directory or current directory.")
+        print("Run a scan first to generate a report.\n")
+        return None
+
+    print("\nRecent reports:")
+    for i, report in enumerate(reports, 1):
+        mtime_str = datetime.fromtimestamp(report['mtime']).strftime('%Y-%m-%d %H:%M')
+        filename = os.path.basename(report['path'])
+        print(f"  {i}) {filename}  [{mtime_str}]")
+    print(f"  {len(reports) + 1}) Back")
+    print()
+
+    while True:
+        choice = input(f"Select (1-{len(reports) + 1}): ").strip()
+        if choice.isdigit():
+            n = int(choice)
+            if 1 <= n <= len(reports):
+                return reports[n - 1]['path']
+            elif n == len(reports) + 1:
+                return None
+        print(f"Invalid choice. Please enter 1-{len(reports) + 1}.")
+
+
 def show_first_run_menu():
     """
     Display first-run menu and return user's selection (D-07 through D-11).
@@ -357,30 +421,32 @@ def show_first_run_menu():
     Menu options:
       1) Compare two drives — returns 'two_drives'
       2) Clean up a single drive — returns 'single_drive'
-      3) Help — returns 'help'
-      4) Quit — returns 'quit'
+      3) Load previous report — returns 'load_report'
+      4) Help — returns 'help'
+      5) Quit — returns 'quit'
 
     Returns:
-        One of: 'two_drives', 'single_drive', 'help', 'quit'
+        One of: 'two_drives', 'single_drive', 'load_report', 'help', 'quit'
     """
     while True:
         menu_text = """
 What would you like to do?
   1) Compare two drives
   2) Clean up a single drive
-  3) Help
-  4) Quit
+  3) Load previous report
+  4) Help
+  5) Quit
         """.strip()
         print(menu_text)
         print()
 
-        choice = input("Select (1-4): ").strip()
+        choice = input("Select (1-5): ").strip()
 
-        if choice in ['1', '2', '3', '4']:
-            mapping = {'1': 'two_drives', '2': 'single_drive', '3': 'help', '4': 'quit'}
+        if choice in ['1', '2', '3', '4', '5']:
+            mapping = {'1': 'two_drives', '2': 'single_drive', '3': 'load_report', '4': 'help', '5': 'quit'}
             return mapping[choice]
         else:
-            print("Invalid choice. Please enter 1, 2, 3, or 4.")
+            print("Invalid choice. Please enter 1, 2, 3, 4, or 5.")
             print()
 
 
@@ -599,6 +665,67 @@ def main(args=None):
                 show_help_guide()
                 # Loop back to menu
                 continue
+            elif selection == 'load_report':
+                report_path = show_report_picker()
+                if report_path is None:
+                    # Back to main menu
+                    continue
+
+                # Load candidates from selected report
+                from diskcomp.reporter import ReportReader
+                from diskcomp.deletion import DeletionOrchestrator
+
+                try:
+                    candidates = ReportReader.load(report_path)
+                except Exception as e:
+                    print(f"\nError reading report: {e}", file=sys.stderr)
+                    continue
+
+                if not candidates:
+                    print("\nNo files marked for deletion in this report.")
+                    print("The report may have already been acted on, or contains no duplicates.\n")
+                    continue
+
+                print(f"\nLoaded {len(candidates)} deletion candidates from:")
+                print(f"  {report_path}\n")
+
+                # Check for read-only drives
+                deletable, readonly_warnings = _check_deletion_readiness(candidates)
+                if readonly_warnings:
+                    print("Some files are on read-only drives:")
+                    for warning in readonly_warnings:
+                        print(f"  - {warning}")
+                    print(f"\nProceeding with {len(deletable)} deletable files.\n")
+                    candidates = deletable
+
+                if not candidates:
+                    print("All files are on read-only drives. Cannot proceed.\n")
+                    continue
+
+                # Show action menu and run deletion workflow
+                action = show_action_menu()
+                if action == 'exit':
+                    print("No files deleted.")
+                    return 0
+
+                ui = UIHandler.create()
+                orchestrator = DeletionOrchestrator(candidates, ui, report_path)
+
+                if action == 'interactive':
+                    result = orchestrator.interactive_mode()
+                else:
+                    result = orchestrator.batch_mode()
+
+                print(f"\nDeletion complete: {result.files_deleted} deleted, {result.space_freed_mb:.2f} MB freed", file=sys.stderr)
+                if result.undo_log_path:
+                    print(f"Undo log: {result.undo_log_path}", file=sys.stderr)
+                if result.errors:
+                    for error in result.errors:
+                        print(f"Error: {error}", file=sys.stderr)
+
+                ui.close()
+                return 0
+
             elif selection == 'two_drives':
                 # Proceed with two-drive flow
                 interactive_selection = 'two_drives'

@@ -503,22 +503,29 @@ class TestFirstRunMenu(unittest.TestCase):
 
     @patch('diskcomp.cli.input')
     def test_show_first_run_menu_option_3(self, mock_input):
-        """Test show_first_run_menu returns 'help' on input '3'."""
+        """Test show_first_run_menu returns 'load_report' on input '3'."""
         mock_input.return_value = '3'
+        result = show_first_run_menu()
+        self.assertEqual(result, 'load_report')
+
+    @patch('diskcomp.cli.input')
+    def test_show_first_run_menu_option_4(self, mock_input):
+        """Test show_first_run_menu returns 'help' on input '4'."""
+        mock_input.return_value = '4'
         result = show_first_run_menu()
         self.assertEqual(result, 'help')
 
     @patch('diskcomp.cli.input')
-    def test_show_first_run_menu_option_4(self, mock_input):
-        """Test show_first_run_menu returns 'quit' on input '4'."""
-        mock_input.return_value = '4'
+    def test_show_first_run_menu_option_5(self, mock_input):
+        """Test show_first_run_menu returns 'quit' on input '5'."""
+        mock_input.return_value = '5'
         result = show_first_run_menu()
         self.assertEqual(result, 'quit')
 
     @patch('diskcomp.cli.input')
     def test_show_first_run_menu_invalid_then_valid(self, mock_input):
         """Test show_first_run_menu retries on invalid input then returns valid choice."""
-        mock_input.side_effect = ['0', '5', 'x', '1']
+        mock_input.side_effect = ['0', '6', 'x', '1']
         result = show_first_run_menu()
         self.assertEqual(result, 'two_drives')
         # Should have been called 4 times (3 invalid + 1 valid)
