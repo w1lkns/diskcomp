@@ -13,7 +13,7 @@
 - [x] **Phase 5: Packaging + Distribution** - Single .py, pip, GitHub Actions CI ✓ COMPLETE
 - [x] **Phase 6: Performance** - Two-pass hashing (size filter → hash only candidates), skip uniques fast ✓ COMPLETE
 - [x] **Phase 7: UX Polish + Single-Drive** - First-run wizard, plain-language results summary, single-drive dedup mode, action menu ✓ COMPLETE
-- [ ] **Phase 7.1: UX Flow Improvements** (INSERTED) - Folder skip, file flagging, constrained input, back navigation (2/5 plans complete)
+- [ ] **Phase 7.1: UX Flow Improvements** (INSERTED) - Folder skip, file flagging, constrained input, back navigation (3/5 plans complete)
 - [ ] **Phase 8: Standalone Distribution** - PyInstaller binary, Homebrew formula, GitHub Releases
 - [ ] **Phase 9: Website** - One-page static site with download button, screenshots, Homebrew snippet
 
@@ -175,9 +175,9 @@ Plans:
 Plans:
 - [x] 07.1-01-PLAN.md — Input Validation & State Preservation (NavigationContext @dataclass, prompt_confirm helper) ✓ COMPLETE
 - [x] 07.1-02-PLAN.md — Folder Skip Selection (get_unique_parent_folders, parse_selection_input, show_folder_selection, display_folder_list) ✓ COMPLETE
-- [ ] 07.1-03-PLAN.md — File Flagging & Deletion Filtering (TBD - Wave 3)
-- [ ] 07.1-04-PLAN.md — Back Navigation Integration (TBD - Wave 3)
-- [ ] 07.1-05-PLAN.md — Constrained Input Throughout (TBD - Wave 3)
+- [x] 07.1-03-PLAN.md — File Flagging & Deletion Filtering (extract_duplicate_files, display_file_list, show_file_flagging, filter_candidates_by_flags) ✓ COMPLETE
+- [ ] 07.1-04-PLAN.md — Back Navigation Integration (TBD - Wave 4)
+- [ ] 07.1-05-PLAN.md — Constrained Input Throughout (TBD - Wave 4)
 
 ### Phase 8: Standalone Distribution
 **Goal**: Non-developers can download and run diskcomp with zero setup. No Python required.
