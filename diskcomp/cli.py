@@ -67,6 +67,41 @@ def parse_size_value(value_str: str) -> int:
     raise ValueError(f"Invalid size format: {value_str}. Use format: 1024, 500KB, 10MB, 1.5GB")
 
 
+def prompt_confirm(message: str, valid_keys: list, ui) -> str:
+    """
+    Validate user input against a whitelist of valid keys.
+
+    Displays a message and loops until the user enters a non-empty value that matches
+    one of the valid_keys (case-sensitive). Invalid input triggers a re-prompt with
+    an error message. Empty input also triggers a re-prompt.
+
+    Args:
+        message: Prompt message to display to user (e.g., "Delete this file? (y/n/skip): ")
+        valid_keys: List of acceptable input values (e.g., ['y', 'n', 'skip'])
+        ui: UIHandler instance for displaying error messages
+
+    Returns:
+        The validated user input (a single string from valid_keys)
+
+    Example:
+        choice = prompt_confirm("Delete this file? (y/n/skip): ", ['y', 'n', 'skip'], ui)
+    """
+    while True:
+        user_input = input(message).strip()
+
+        # Check for empty input
+        if not user_input:
+            ui.error(f"Invalid choice. Enter one of: {', '.join(valid_keys)}")
+            continue
+
+        # Check for valid key
+        if user_input in valid_keys:
+            return user_input
+
+        # Invalid key
+        ui.error(f"Invalid choice. Enter one of: {', '.join(valid_keys)}")
+
+
 def parse_args(args=None):
     """
     Parse command-line arguments.
