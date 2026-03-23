@@ -12,11 +12,11 @@ import os
 import sys
 from datetime import datetime
 
-from diskcomp.scanner import FileScanner
+from diskcomp.scanner import FileScanner, get_unique_parent_folders
 from diskcomp.hasher import FileHasher
 from diskcomp.reporter import DuplicateClassifier, ReportWriter
 from diskcomp.ui import UIHandler
-from diskcomp.types import ScanError, InvalidPathError, FileNotReadableError
+from diskcomp.types import ScanError, InvalidPathError, FileNotReadableError, NavigationContext
 from diskcomp.drive_picker import interactive_drive_picker, interactive_single_drive_picker
 from diskcomp.health import check_drive_health, get_fix_instructions
 from diskcomp.benchmarker import benchmark_read_speed
@@ -150,6 +150,98 @@ def parse_selection_input(input_str: str, max_index: int) -> list:
         raise ValueError("No valid selections made")
 
     return sorted(list(result_set))
+
+
+def show_folder_selection(context: NavigationContext, ui) -> NavigationContext:
+    """
+    Display folder selection UI and prompt user to select folders to skip.
+
+    After hashing completes and user sees the summary, they can navigate to option 1
+    to select one or more folders to exclude before proceeding to deletion. Displays
+    a numbered list of unique parent folders and accepts comma/space-separated or
+    range notation input (e.g., 1,3,5 or 1-3).
+
+    Args:
+        context: NavigationContext with scan_results already populated
+        ui: UIHandler instance for display and error messages
+
+    Returns:
+        Modified NavigationContext with selected_folders_skip populated as set of paths
+
+    Behavior:
+        - Extracts unique parent folders from context.scan_results
+        - If 0 folders found: displays message and returns context unchanged
+        - If 1+ folders found:
+            - Displays numbered folder list
+            - Loops until user makes valid selection or presses 'b' to go back
+            - Validates input with parse_selection_input()
+            - Stores selected folder paths in context.selected_folders_skip (as set)
+            - Displays confirmation message
+        - Handles errors gracefully: displays ui.error() and loops again
+
+    Example:
+        context = NavigationContext(scan_results={...})
+        context = show_folder_selection(context, ui)
+        # context.selected_folders_skip now contains ['/path/to/Photos', '/path/to/Videos']
+    """
+    # Extract unique parent folders from scan results
+    if not context.scan_results or 'files_by_hash' not in context.scan_results:
+        ui.ok("No scan results available")
+        return context
+
+    # Flatten all files from the classification dict
+    all_files = []
+    for files_list in context.scan_results.get('files_by_hash', {}).values():
+        all_files.extend(files_list)
+
+    folders = get_unique_parent_folders(all_files)
+
+    # If no folders found, return early
+    if not folders:
+        ui.ok("No folders to skip")
+        return context
+
+    # Display the folder list
+    ui.display_folder_list(folders)
+
+    # Loop until user makes valid selection or presses 'b' to go back
+    while True:
+        # Build valid_keys list: all folder numbers plus 'b' for back
+        valid_keys = [str(i) for i in range(1, len(folders) + 1)] + ['b']
+
+        try:
+            user_input = input(
+                f"Enter folder numbers to skip (e.g., 1,3,5 or 1-3), or 'b' to go back: "
+            ).strip()
+
+            # Check for back key
+            if user_input.lower() == 'b':
+                return context
+
+            # Parse the selection
+            selected_indices = parse_selection_input(user_input, len(folders))
+
+            # Convert indices (1-based) to folder paths
+            selected_paths = set()
+            for idx in selected_indices:
+                # idx is 1-based, convert to 0-based for list indexing
+                selected_paths.add(folders[idx - 1])
+
+            # Store in context
+            context.selected_folders_skip = selected_paths
+
+            # Display confirmation
+            if len(selected_paths) == 1:
+                folder_list = list(selected_paths)[0]
+            else:
+                folder_list = ", ".join(sorted(selected_paths))
+            ui.ok(f"Selected {len(selected_paths)} folder(s) to skip: {folder_list}")
+
+            return context
+
+        except ValueError as e:
+            # Invalid input - display error and loop again
+            ui.error(str(e))
 
 
 def prompt_confirm(message: str, valid_keys: list, ui) -> str:
