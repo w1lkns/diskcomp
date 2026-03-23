@@ -8,7 +8,7 @@ from diskcomp.cli import (
     parse_args, main, display_health_checks, _display_health_result,
     parse_size_value, show_first_run_menu, show_help_guide,
     show_plain_language_summary, show_next_steps, show_action_menu,
-    prompt_confirm
+    prompt_confirm, parse_selection_input
 )
 from diskcomp.types import HealthCheckResult, NavigationContext
 
@@ -1276,6 +1276,37 @@ class TestNavigationContext(unittest.TestCase):
 
         self.assertEqual(ctx1.selected_folders_skip, {'/path/a'})
         self.assertEqual(ctx2.selected_folders_skip, {'/path/b'})
+
+
+class TestParseSelectionInput(unittest.TestCase):
+    """Test suite for parse_selection_input() folder selection parsing."""
+
+    def test_parse_selection_input_comma_separated(self):
+        """Test parse_selection_input with comma-separated indices."""
+        result = parse_selection_input("1,3,5", max_index=10)
+        self.assertEqual(result, [1, 3, 5])
+
+    def test_parse_selection_input_range_notation(self):
+        """Test parse_selection_input with range notation and mixed indices."""
+        result = parse_selection_input("1-3,5", max_index=10)
+        self.assertEqual(result, [1, 2, 3, 5])
+
+    def test_parse_selection_input_space_separated(self):
+        """Test parse_selection_input with space-separated indices."""
+        result = parse_selection_input("1 2 3", max_index=5)
+        self.assertEqual(result, [1, 2, 3])
+
+    def test_parse_selection_input_invalid_index(self):
+        """Test parse_selection_input raises ValueError for out-of-range index."""
+        with self.assertRaises(ValueError) as cm:
+            parse_selection_input("1,7", max_index=5)
+        self.assertIn("out of range", str(cm.exception))
+
+    def test_parse_selection_input_empty_string(self):
+        """Test parse_selection_input raises ValueError for empty input."""
+        with self.assertRaises(ValueError) as cm:
+            parse_selection_input("", max_index=5)
+        self.assertIn("No valid selections made", str(cm.exception))
 
 
 if __name__ == '__main__':
