@@ -125,6 +125,13 @@ Examples:
     )
 
     parser.add_argument(
+        '--single',
+        type=str,
+        default=None,
+        help='Scan a single drive for internal duplicates (find redundant files on same drive)'
+    )
+
+    parser.add_argument(
         '--output',
         type=str,
         default=None,
@@ -441,6 +448,68 @@ def show_startup_banner():
     print()
 
 
+def show_plain_language_summary(summary_dict: dict, mode: str = 'two_drives',
+                                keep_label: str = 'Keep', other_label: str = 'Other'):
+    """
+    Display plain-language results summary (D-16, D-17).
+
+    Args:
+        summary_dict: From DuplicateClassifier.classify()['summary']
+        mode: 'two_drives' or 'single_drive'
+        keep_label: Label for keep drive (e.g., 'MySSD')
+        other_label: Label for other/single drive (e.g., 'Backup')
+    """
+    duplicate_count = summary_dict.get('duplicate_count', 0)
+    duplicate_mb = summary_dict.get('duplicate_size_mb', 0)
+
+    if duplicate_count == 0:
+        if mode == 'two_drives':
+            msg = "No duplicates found. Both drives are already clean."
+        else:
+            msg = "No duplicates found. This drive has no redundant files."
+        print()
+        print(msg)
+        print()
+        return
+
+    # Format size: use GB if >= 1000 MB, otherwise MB
+    if duplicate_mb >= 1000:
+        size_str = f"{duplicate_mb / 1000:.1f} GB"
+    else:
+        size_str = f"{duplicate_mb:.1f} MB"
+
+    # Choose label: use other_label for two-drive, "this drive" for single
+    if mode == 'two_drives':
+        drive_label = other_label
+    else:
+        drive_label = "this drive"
+
+    msg = f"Found {duplicate_count} duplicates. You could free {size_str} from {drive_label}. Ready to review?"
+
+    print()
+    print(msg)
+    print()
+
+
+def show_next_steps(report_path: str):
+    """
+    Display next steps block with exact commands (D-18).
+
+    Args:
+        report_path: Path to the generated report file
+    """
+    # Generate undo log hint (default pattern ~/diskcomp-undo-YYYYMMDD.json)
+    today = datetime.now().strftime('%Y%m%d')
+    undo_hint = f"~/diskcomp-undo-{today}.json"
+
+    print("── Next steps " + "─" * 40)
+    print(f"Review:  cat {report_path}")
+    print(f"Delete:  diskcomp --delete-from {report_path}")
+    print(f"Undo:    diskcomp --undo {undo_hint}")
+    print("─" * 60)
+    print()
+
+
 def main(args=None):
     """
     Main orchestration function.
@@ -466,12 +535,13 @@ def main(args=None):
             print(f"Error: {e}", file=sys.stderr)
             return 1
 
-    # Detect interactive (no-args) mode: no --keep, --other, --delete-from, --undo
+    # Detect interactive (no-args) mode: no --keep, --other, --delete-from, --undo, --single
     is_interactive_mode = (
         not args.keep
         and not args.other
         and not args.delete_from
         and not args.undo
+        and not args.single
     )
 
     if is_interactive_mode:
@@ -587,6 +657,93 @@ def main(args=None):
             return 0
         except Exception as e:
             print(f"Error during deletion: {e}", file=sys.stderr)
+            return 1
+
+    # Handle --single flag (single-drive mode)
+    if args.single:
+        # Single-drive mode: scan one path, find internal duplicates
+        single_path = os.path.abspath(args.single)
+
+        # Validate path
+        if not os.path.isdir(single_path):
+            print(f"Error: --single path is not a directory: {single_path}", file=sys.stderr)
+            return 1
+
+        # Create UI
+        ui = UIHandler.create()
+
+        try:
+            # Scan single drive
+            from diskcomp.hasher import group_by_hash_single_drive, group_by_size_single_drive
+
+            scanner = FileScanner(single_path, min_size_bytes=min_size_bytes)
+            ui.start_scan(single_path)
+            scan_result = scanner.scan(
+                dry_run=args.dry_run,
+                limit=args.limit,
+                on_folder_done=lambda folder_path, count: ui.on_folder_done(folder_path, count)
+            )
+            ui.on_folder_done(single_path, scan_result.file_count)
+
+            # If dry-run, skip hashing and exit
+            if args.dry_run:
+                ui.close()
+                return 0
+
+            # Two-pass optimization: size filter then hash (D-03)
+            candidates, size_stats = group_by_size_single_drive(scan_result.files)
+            ui.update_status(f"Hashing {size_stats['candidate_count']} size-collision candidates...")
+
+            # Hash candidates
+            hasher = FileHasher()
+            hashed_records = hasher.hash_files(candidates, on_file_hashed=lambda *args: ui.on_file_hashed(*args))
+
+            # Group by hash to identify duplicates
+            single_drive_result = group_by_hash_single_drive(hashed_records)
+
+            # Convert to standard classification dict format for ReportWriter
+            classification = {
+                'duplicates': single_drive_result['duplicates'],
+                'unique_in_keep': [],
+                'unique_in_other': single_drive_result['unique'],
+                'summary': single_drive_result['summary'],
+            }
+
+            # Generate report
+            writer = ReportWriter(output_path=args.output)
+            if args.format == 'json':
+                writer.write_json(classification)
+            else:  # default csv
+                writer.write_csv(classification)
+
+            # Display summary
+            get_drive_label = lambda p: os.path.basename(p.rstrip('/\\')) or p
+            drive_label = get_drive_label(single_path)
+            summary = classification['summary']
+            ui.show_summary(
+                duplicates_mb=summary['duplicate_size_mb'],
+                duplicates_count=summary['duplicate_count'],
+                unique_keep_mb=0,
+                unique_keep_count=0,
+                unique_other_mb=summary['unique_in_other_size_mb'],
+                unique_other_count=summary['unique_in_other_count'],
+                report_path=writer.output_path
+            )
+
+            # Plain-language summary and next steps
+            show_plain_language_summary(summary, mode='single_drive', keep_label=drive_label, other_label=drive_label)
+            show_next_steps(writer.output_path)
+
+            ui.close()
+            return 0
+
+        except KeyboardInterrupt:
+            print(f"\n^C Aborted by user.", file=sys.stderr)
+            ui.close()
+            return 0
+        except Exception as e:
+            print(f"Error during single-drive scan: {e}", file=sys.stderr)
+            ui.close()
             return 1
 
     # Instantiate UI
@@ -719,6 +876,12 @@ def main(args=None):
             unique_other_count=summary['unique_in_other_count'],
             report_path=writer.output_path
         )
+
+        # Show plain-language summary (D-16)
+        show_plain_language_summary(summary, mode='two_drives', keep_label='Keep', other_label='Other')
+
+        # Show next steps (D-18)
+        show_next_steps(writer.output_path)
 
         # Close UI
         ui.close()

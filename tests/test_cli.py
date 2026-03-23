@@ -6,7 +6,8 @@ from io import StringIO
 
 from diskcomp.cli import (
     parse_args, main, display_health_checks, _display_health_result,
-    parse_size_value, show_first_run_menu, show_help_guide
+    parse_size_value, show_first_run_menu, show_help_guide,
+    show_plain_language_summary, show_next_steps
 )
 from diskcomp.types import HealthCheckResult
 
@@ -577,6 +578,132 @@ class TestHelpGuide(unittest.TestCase):
         output = mock_stdout.getvalue()
         self.assertIn('two drives', output)
         self.assertIn('single drive', output)
+
+
+class TestPlainLanguageSummary(unittest.TestCase):
+    """Test suite for show_plain_language_summary function."""
+
+    @patch('sys.stdout', new_callable=StringIO)
+    def test_show_plain_language_summary_with_duplicates(self, mock_stdout):
+        """Test show_plain_language_summary displays correctly with duplicates."""
+        summary = {
+            'duplicate_count': 50,
+            'duplicate_size_mb': 10.5
+        }
+        show_plain_language_summary(summary, mode='two_drives', keep_label='Keep', other_label='Backup')
+        output = mock_stdout.getvalue()
+        self.assertIn('Found 50 duplicates', output)
+        self.assertIn('10.5 MB', output)
+        self.assertIn('Backup', output)
+        self.assertIn('Ready to review?', output)
+
+    @patch('sys.stdout', new_callable=StringIO)
+    def test_show_plain_language_summary_zero_duplicates_two_drives(self, mock_stdout):
+        """Test show_plain_language_summary with zero duplicates (two-drive mode)."""
+        summary = {
+            'duplicate_count': 0,
+            'duplicate_size_mb': 0.0
+        }
+        show_plain_language_summary(summary, mode='two_drives')
+        output = mock_stdout.getvalue()
+        self.assertIn('No duplicates found', output)
+        self.assertIn('Both drives are already clean', output)
+
+    @patch('sys.stdout', new_callable=StringIO)
+    def test_show_plain_language_summary_zero_duplicates_single_drive(self, mock_stdout):
+        """Test show_plain_language_summary with zero duplicates (single-drive mode)."""
+        summary = {
+            'duplicate_count': 0,
+            'duplicate_size_mb': 0.0
+        }
+        show_plain_language_summary(summary, mode='single_drive')
+        output = mock_stdout.getvalue()
+        self.assertIn('No duplicates found', output)
+        self.assertIn('This drive has no redundant files', output)
+
+    @patch('sys.stdout', new_callable=StringIO)
+    def test_show_plain_language_summary_uses_gb_for_large(self, mock_stdout):
+        """Test show_plain_language_summary converts MB to GB for values >= 1000 MB."""
+        summary = {
+            'duplicate_count': 100,
+            'duplicate_size_mb': 2500.0
+        }
+        show_plain_language_summary(summary, mode='two_drives', other_label='External')
+        output = mock_stdout.getvalue()
+        self.assertIn('Found 100 duplicates', output)
+        self.assertIn('2.5 GB', output)
+        self.assertNotIn('2500', output)  # Should not show as MB
+
+    @patch('sys.stdout', new_callable=StringIO)
+    def test_show_plain_language_summary_uses_mb_for_small(self, mock_stdout):
+        """Test show_plain_language_summary uses MB for values < 1000 MB."""
+        summary = {
+            'duplicate_count': 25,
+            'duplicate_size_mb': 500.0
+        }
+        show_plain_language_summary(summary, mode='two_drives')
+        output = mock_stdout.getvalue()
+        self.assertIn('Found 25 duplicates', output)
+        self.assertIn('500.0 MB', output)
+        self.assertNotIn('GB', output)
+
+    @patch('sys.stdout', new_callable=StringIO)
+    def test_show_plain_language_summary_single_drive_mode_label(self, mock_stdout):
+        """Test show_plain_language_summary uses 'this drive' for single-drive mode."""
+        summary = {
+            'duplicate_count': 10,
+            'duplicate_size_mb': 100.0
+        }
+        show_plain_language_summary(summary, mode='single_drive')
+        output = mock_stdout.getvalue()
+        self.assertIn('this drive', output)
+
+    @patch('sys.stdout', new_callable=StringIO)
+    def test_show_plain_language_summary_threshold_at_1000(self, mock_stdout):
+        """Test show_plain_language_summary uses GB for exactly 1000 MB."""
+        summary = {
+            'duplicate_count': 5,
+            'duplicate_size_mb': 1000.0
+        }
+        show_plain_language_summary(summary, mode='two_drives')
+        output = mock_stdout.getvalue()
+        self.assertIn('1.0 GB', output)
+
+
+class TestNextSteps(unittest.TestCase):
+    """Test suite for show_next_steps function."""
+
+    @patch('sys.stdout', new_callable=StringIO)
+    def test_show_next_steps_output(self, mock_stdout):
+        """Test show_next_steps displays correct commands and paths."""
+        report_path = '/tmp/diskcomp-report-20260323-120000.csv'
+        show_next_steps(report_path)
+        output = mock_stdout.getvalue()
+        self.assertIn('Next steps', output)
+        self.assertIn(f'cat {report_path}', output)
+        self.assertIn(f'diskcomp --delete-from {report_path}', output)
+        self.assertIn('diskcomp --undo', output)
+        self.assertIn('diskcomp-undo', output)
+
+    @patch('sys.stdout', new_callable=StringIO)
+    def test_show_next_steps_undo_hint_format(self, mock_stdout):
+        """Test show_next_steps shows undo log hint with date pattern."""
+        report_path = '/home/user/diskcomp-report.csv'
+        show_next_steps(report_path)
+        output = mock_stdout.getvalue()
+        # Check for undo hint pattern (should be like ~/diskcomp-undo-YYYYMMDD.json)
+        self.assertIn('~/diskcomp-undo-', output)
+        self.assertIn('.json', output)
+
+    @patch('sys.stdout', new_callable=StringIO)
+    def test_show_next_steps_border_format(self, mock_stdout):
+        """Test show_next_steps displays border lines correctly."""
+        report_path = '/tmp/report.csv'
+        show_next_steps(report_path)
+        output = mock_stdout.getvalue()
+        # Check for border dashes
+        self.assertIn('──', output)
+        self.assertIn('─' * 60, output)
 
 
 if __name__ == '__main__':
