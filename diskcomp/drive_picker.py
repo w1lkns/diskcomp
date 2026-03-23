@@ -327,14 +327,51 @@ def interactive_drive_picker() -> Optional[Dict[str, str]]:
         print("Error: Need at least 2 drives to compare.", file=sys.stderr)
         return None
 
-    print("Remaining drives for comparison:")
-    for i, drive in enumerate(remaining, 1):
-        print(f"{i}. {drive.mountpoint}")
+    if len(remaining) == 1:
+        other_drive = remaining[0].mountpoint
+        print(f"Other drive (auto-selected): {other_drive}")
+    else:
+        print("Remaining drives for comparison:")
+        for i, drive in enumerate(remaining, 1):
+            print(f"{i}. {drive.mountpoint}")
 
-    print()
-    other_index = _prompt_for_drive_index("Which drive to compare (OTHER)?", len(remaining))
-    other_drive = remaining[other_index].mountpoint
+        print()
+        other_index = _prompt_for_drive_index("Which drive to compare (OTHER)?", len(remaining))
+        other_drive = remaining[other_index].mountpoint
 
     print(f"\nSelected: Keep={keep_drive}, Other={other_drive}")
 
     return {'keep': keep_drive, 'other': other_drive}
+
+
+def interactive_single_drive_picker() -> Optional[str]:
+    """
+    Prompt the user to select a single drive to clean up.
+
+    Returns:
+        Mountpoint string of the selected drive, or None on error.
+    """
+    drives = get_drives()
+
+    if not drives:
+        print("Error: No mounted drives detected.", file=sys.stderr)
+        return None
+
+    print("\n=== Available Drives ===\n")
+    for i, drive in enumerate(drives, 1):
+        label_or_path = drive.volume_label or drive.mountpoint
+        print(f"{i}. {label_or_path} ({drive.mountpoint})")
+        print(f"   Device: {drive.device}")
+        print(f"   Filesystem: {drive.fstype}")
+        print(f"   Space: {drive.used_gb}GB / {drive.total_gb}GB used")
+        print(f"   Writable: {'Yes' if drive.is_writable else 'NO (READ-ONLY)'}")
+
+        health = check_drive_health(drive.mountpoint)
+        if health.warnings:
+            for warning in health.warnings:
+                print(f"   WARNING: {warning}")
+
+        print()
+
+    index = _prompt_for_drive_index("Which drive to clean up?", len(drives))
+    return drives[index].mountpoint

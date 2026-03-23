@@ -16,7 +16,7 @@ from diskcomp.hasher import FileHasher
 from diskcomp.reporter import DuplicateClassifier, ReportWriter
 from diskcomp.ui import UIHandler
 from diskcomp.types import ScanError, InvalidPathError, FileNotReadableError
-from diskcomp.drive_picker import interactive_drive_picker
+from diskcomp.drive_picker import interactive_drive_picker, interactive_single_drive_picker
 from diskcomp.health import check_drive_health, get_fix_instructions
 from diskcomp.benchmarker import benchmark_read_speed
 
@@ -707,19 +707,17 @@ def main(args=None):
         if args.single:
             single_path = os.path.abspath(args.single)
         else:
-            # Interactive mode: launch drive picker to select single drive
+            # Interactive mode: launch single-drive picker
             ui = UIHandler.create()
             ui.section("Select Drive to Clean Up")
             ui.blank()
 
-            selected = interactive_drive_picker()
-            if selected is None:
+            single_path = interactive_single_drive_picker()
+            if single_path is None:
                 ui.error("Could not complete drive selection.")
                 ui.close()
                 return 1
 
-            # Use the 'keep' path from picker for single-drive mode
-            single_path = selected['keep']
             ui.ok(f"Cleaning up: {single_path}")
 
         # Validate path
