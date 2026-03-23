@@ -21,6 +21,51 @@ from diskcomp.health import check_drive_health
 from diskcomp.benchmarker import benchmark_read_speed
 
 
+def parse_size_value(value_str: str) -> int:
+    """
+    Parse human-readable size string to bytes.
+
+    Accepts:
+    - Plain integer: "1024" -> 1024 bytes
+    - KB suffix (case-insensitive): "500KB" or "500kb" -> 512000 bytes
+    - MB suffix: "10MB" or "10mb" -> 10485760 bytes
+    - GB suffix: "1.5GB" or "1.5gb" -> 1610612736 bytes
+
+    Returns:
+        Integer byte count
+
+    Raises:
+        ValueError: If format is invalid or cannot parse
+    """
+    value_str = value_str.strip()
+
+    # Try parsing as plain integer first
+    try:
+        return int(value_str)
+    except ValueError:
+        pass
+
+    # Parse with suffix (check longest first to avoid ambiguity)
+    multipliers = [
+        ('gb', 1024 * 1024 * 1024),
+        ('mb', 1024 * 1024),
+        ('kb', 1024),
+        ('b', 1),
+    ]
+
+    for suffix, multiplier in multipliers:
+        if value_str.lower().endswith(suffix):
+            try:
+                num_part = value_str[:-len(suffix)].strip()
+                num = float(num_part)
+                return int(num * multiplier)
+            except (ValueError, IndexError):
+                raise ValueError(f"Invalid size format: {value_str}")
+
+    # No valid format found
+    raise ValueError(f"Invalid size format: {value_str}. Use format: 1024, 500KB, 10MB, 1.5GB")
+
+
 def parse_args(args=None):
     """
     Parse command-line arguments.
@@ -70,6 +115,13 @@ Examples:
         type=int,
         default=None,
         help='Hash only first N files per drive (for testing, default: no limit)'
+    )
+
+    parser.add_argument(
+        '--min-size',
+        type=str,
+        default=None,
+        help='Minimum file size to include (e.g. 1KB, 10MB, 1.5GB, or bytes; default: 1KB)'
     )
 
     parser.add_argument(
@@ -330,6 +382,15 @@ def main(args=None):
     if args is None:
         args = parse_args()
 
+    # Validate --min-size flag if provided
+    min_size_bytes = 1024  # Default 1KB
+    if hasattr(args, 'min_size') and args.min_size:
+        try:
+            min_size_bytes = parse_size_value(args.min_size)
+        except ValueError as e:
+            print(f"Error: {e}", file=sys.stderr)
+            return 1
+
     # Detect interactive (no-args) mode: no --keep, --other, --delete-from, --undo
     is_interactive_mode = (
         not args.keep
@@ -480,7 +541,7 @@ def main(args=None):
 
         # Scan keep drive with UI callback
         ui.start_scan(args.keep)
-        keep_scanner = FileScanner(args.keep)
+        keep_scanner = FileScanner(args.keep, min_size_bytes=min_size_bytes)
         keep_result = keep_scanner.scan(
             dry_run=args.dry_run,
             limit=args.limit,
@@ -489,7 +550,7 @@ def main(args=None):
 
         # Scan other drive with UI callback
         ui.start_scan(args.other)
-        other_scanner = FileScanner(args.other)
+        other_scanner = FileScanner(args.other, min_size_bytes=min_size_bytes)
         other_result = other_scanner.scan(
             dry_run=args.dry_run,
             limit=args.limit,
