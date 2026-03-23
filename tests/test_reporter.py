@@ -276,8 +276,8 @@ class TestReportWriter(unittest.TestCase):
             reader = csv.DictReader(f)
             rows = list(reader)
             assert len(rows) >= 1, "Should have at least one row"
-            assert 'action' in rows[0], "Should have action column"
-            assert 'hash' in rows[0], "Should have hash column"
+            assert 'status' in rows[0], "Should have status column"
+            assert 'verification_hash' in rows[0], "Should have verification_hash column"
 
     def test_write_json(self):
         """Test JSON report writing."""
