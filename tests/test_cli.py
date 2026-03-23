@@ -156,7 +156,7 @@ class TestHealthCheckDisplay(unittest.TestCase):
     """Test suite for health check display."""
 
     def test_display_health_result_basic(self):
-        """Test _display_health_result formats output correctly."""
+        """Test _display_health_result calls UI with correct data."""
         health = HealthCheckResult(
             mountpoint='/mnt/test',
             total_gb=500.0,
@@ -168,20 +168,18 @@ class TestHealthCheckDisplay(unittest.TestCase):
             errors=[]
         )
 
-        # Capture stderr output
-        with patch('sys.stderr', new=StringIO()) as mock_stderr:
-            _display_health_result("Test", health)
-            output = mock_stderr.getvalue()
+        mock_ui = MagicMock()
+        _display_health_result(mock_ui, "Test Drive", "/mnt/test", health)
 
-        # Verify output contains expected info
-        self.assertIn("Test Drive:", output)
-        self.assertIn("500.0", output)  # total_gb
-        self.assertIn("250.0", output)  # used_gb
-        self.assertIn("APFS", output)  # fstype
-        self.assertIn("Yes", output)  # is_writable
+        mock_ui.drive_header.assert_called_once_with("Test Drive", "/mnt/test")
+        # Space, Filesystem, Writable each get a kv call
+        kv_calls = [str(c) for c in mock_ui.kv.call_args_list]
+        self.assertTrue(any("500.0" in s for s in kv_calls))
+        self.assertTrue(any("APFS" in s for s in kv_calls))
+        self.assertTrue(any("Yes" in s for s in kv_calls))
 
     def test_display_health_result_with_warnings(self):
-        """Test _display_health_result with warnings."""
+        """Test _display_health_result passes warnings to UI."""
         health = HealthCheckResult(
             mountpoint='/mnt/test',
             total_gb=100.0,
@@ -193,12 +191,12 @@ class TestHealthCheckDisplay(unittest.TestCase):
             errors=[]
         )
 
-        with patch('sys.stderr', new=StringIO()) as mock_stderr:
-            _display_health_result("Test", health)
-            output = mock_stderr.getvalue()
+        mock_ui = MagicMock()
+        _display_health_result(mock_ui, "Test Drive", "/mnt/test", health)
 
-        self.assertIn("WARNING:", output)
-        self.assertIn("NTFS on macOS may be read-only", output)
+        mock_ui.warn.assert_called()
+        warn_args = str(mock_ui.warn.call_args_list)
+        self.assertIn("NTFS on macOS may be read-only", warn_args)
 
     @patch('diskcomp.cli.check_drive_health')
     def test_display_health_checks_success(self, mock_health):

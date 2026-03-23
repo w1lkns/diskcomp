@@ -12,7 +12,7 @@ Rich is available).
 """
 
 from typing import Union, Optional
-from diskcomp.ansi_codes import CYAN, GREEN, RESET, ARROW, TICK, colored, progress_bar, format_speed, format_eta
+from diskcomp.ansi_codes import CYAN, GREEN, RED, YELLOW, RESET, BOLD, ARROW, TICK, CROSS, colored, progress_bar, format_speed, format_eta
 
 # Graceful Rich import with fallback
 try:
@@ -208,6 +208,42 @@ class RichProgressUI:
                 description=f"[cyan]Deleting files... ({space_freed_mb:.2f} MB freed)"
             )
 
+    def section(self, title: str):
+        """Print a styled section header."""
+        self.console.rule(f"[bold cyan]{title}[/bold cyan]")
+
+    def drive_header(self, label: str, path: str):
+        """Print a drive sub-header with path."""
+        self.console.print(f"\n  [bold]{label}[/bold]  [dim cyan]{path}[/dim cyan]")
+
+    def kv(self, key: str, value: str, status: str = 'normal'):
+        """Print an indented key-value line with optional status coloring."""
+        if status == 'ok':
+            val_str = f"[green]{value}[/green]"
+        elif status == 'warn':
+            val_str = f"[yellow]{value}[/yellow]"
+        elif status == 'error':
+            val_str = f"[red]{value}[/red]"
+        else:
+            val_str = value
+        self.console.print(f"    [bold]{key:<12}[/bold]  {val_str}")
+
+    def warn(self, msg: str):
+        """Print an indented warning line."""
+        self.console.print(f"    [yellow]![/yellow]  {msg}")
+
+    def error(self, msg: str):
+        """Print an indented error line."""
+        self.console.print(f"    [red]✗[/red]  {msg}")
+
+    def ok(self, msg: str):
+        """Print a success/info line."""
+        self.console.print(f"  [green]✓[/green]  {msg}")
+
+    def blank(self):
+        """Print a blank line."""
+        self.console.print()
+
     def close(self):
         """Close the progress context."""
         if self.progress_context:
@@ -266,16 +302,21 @@ class ANSIProgressUI:
             speed_mbps: Current hashing speed in MB/s
             eta_secs: Estimated seconds remaining
         """
+        import sys as _sys
         bar = progress_bar(current, total)
         speed_str = format_speed(speed_mbps * 1048576)  # Convert MB/s to bytes/s
 
-        output = f"{bar} | {current}/{total} files | {speed_str}"
+        output = f"{bar}  {current}/{total}  {speed_str}"
 
         if eta_secs is not None and eta_secs > 0:
-            eta_str = format_eta(eta_secs)
-            output += f" | ETA {eta_str}"
+            output += f"  ETA {format_eta(eta_secs)}"
 
-        print(output)
+        if _sys.stdout.isatty():
+            print(f"\r  {output.ljust(76)}", end='', flush=True)
+            if current >= total:
+                print()  # end the progress line
+        else:
+            print(output)
 
     def show_summary(self, duplicates_mb: float, duplicates_count: int,
                      unique_keep_mb: float, unique_keep_count: int,
@@ -355,6 +396,43 @@ class ANSIProgressUI:
         bar = progress_bar(current, total)
         output = f"{bar} | {current}/{total} files | {space_freed_mb:.2f} MB freed"
         print(output)
+
+    def section(self, title: str):
+        """Print a styled section header."""
+        pad = "─" * max(0, 52 - len(title))
+        print(f"\n{BOLD}{CYAN}── {title} {pad}{RESET}")
+
+    def drive_header(self, label: str, path: str):
+        """Print a drive sub-header with path."""
+        print(f"\n  {BOLD}{label}{RESET}  {CYAN}{path}{RESET}")
+
+    def kv(self, key: str, value: str, status: str = 'normal'):
+        """Print an indented key-value line with optional status coloring."""
+        if status == 'ok':
+            val = f"{GREEN}{value}{RESET}"
+        elif status == 'warn':
+            val = f"{YELLOW}{value}{RESET}"
+        elif status == 'error':
+            val = f"{RED}{value}{RESET}"
+        else:
+            val = value
+        print(f"    {key:<12}  {val}")
+
+    def warn(self, msg: str):
+        """Print an indented warning line."""
+        print(f"    {YELLOW}! {msg}{RESET}")
+
+    def error(self, msg: str):
+        """Print an indented error line."""
+        print(f"    {RED}{CROSS} {msg}{RESET}")
+
+    def ok(self, msg: str):
+        """Print a success/info line."""
+        print(f"  {GREEN}{TICK}{RESET}  {msg}")
+
+    def blank(self):
+        """Print a blank line."""
+        print()
 
     def close(self):
         """No-op for ANSI UI (no context to clean up)."""

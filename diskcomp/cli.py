@@ -116,81 +116,73 @@ def display_health_checks(keep_path, other_path, ui):
     Returns:
         True if checks pass (warnings are OK), False if critical error occurs
     """
-    print("\n=== Drive Health Checks ===\n", file=sys.stderr)
+    ui.section("Drive Health Checks")
 
-    # Check keep drive
-    print(f"Checking '{keep_path}'...", file=sys.stderr)
     keep_health = check_drive_health(keep_path)
-    _display_health_result("Keep", keep_health)
+    _display_health_result(ui, "Keep Drive", keep_path, keep_health)
 
-    # Handle benchmark failure with retry for keep drive
     if keep_health.benchmark_result and not keep_health.benchmark_result.success:
-        retry = input(f"Benchmark failed: {keep_health.benchmark_result.error}. Retry? (y/n): ").strip().lower()
+        retry = input(f"\n  Benchmark failed: {keep_health.benchmark_result.error}. Retry? (y/n): ").strip().lower()
         if retry in ['y', 'yes']:
-            print(f"Retrying benchmark on '{keep_path}'...", file=sys.stderr)
             keep_health.benchmark_result = benchmark_read_speed(keep_path)
             if keep_health.benchmark_result.success:
-                print(f"  Read speed: {keep_health.benchmark_result.speed_mbps:.1f} MB/s", file=sys.stderr)
+                ui.kv("Speed", f"{keep_health.benchmark_result.speed_mbps:.1f} MB/s", 'ok')
             else:
-                print(f"  Benchmark failed again: {keep_health.benchmark_result.error}. Proceeding without speed check.", file=sys.stderr)
+                ui.warn("Benchmark failed again. Proceeding without speed check.")
 
-    # Check other drive
-    print(f"Checking '{other_path}'...", file=sys.stderr)
     other_health = check_drive_health(other_path)
-    _display_health_result("Other", other_health)
+    _display_health_result(ui, "Other Drive", other_path, other_health)
 
-    # Handle benchmark failure with retry for other drive (if writable)
     if other_health.benchmark_result and not other_health.benchmark_result.success:
-        retry = input(f"Benchmark failed: {other_health.benchmark_result.error}. Retry? (y/n): ").strip().lower()
+        retry = input(f"\n  Benchmark failed: {other_health.benchmark_result.error}. Retry? (y/n): ").strip().lower()
         if retry in ['y', 'yes']:
-            print(f"Retrying benchmark on '{other_path}'...", file=sys.stderr)
             other_health.benchmark_result = benchmark_read_speed(other_path)
             if other_health.benchmark_result.success:
-                print(f"  Read speed: {other_health.benchmark_result.speed_mbps:.1f} MB/s", file=sys.stderr)
+                ui.kv("Speed", f"{other_health.benchmark_result.speed_mbps:.1f} MB/s", 'ok')
             else:
-                print(f"  Benchmark failed again: {other_health.benchmark_result.error}. Proceeding without speed check.", file=sys.stderr)
+                ui.warn("Benchmark failed again. Proceeding without speed check.")
 
-    # If both drives are readable, proceed (warnings don't block)
+    ui.blank()
     if keep_health.is_writable and other_health.is_writable:
-        print("\nBoth drives readable. Proceeding with scan.", file=sys.stderr)
+        ui.ok("Both drives readable. Ready to scan.")
         return True
 
-    # If keep drive is not writable, block (can't write scan results)
     if not keep_health.is_writable:
-        print("Error: Keep drive is not writable. Cannot proceed.", file=sys.stderr)
+        ui.error("Keep drive is not writable. Cannot proceed.")
         return False
 
-    # Other drive read-only is OK (we only read from it)
-    print("\nOther drive is read-only, but scan can proceed (read-only is OK).", file=sys.stderr)
+    ui.ok("Other drive is read-only — scan can proceed (read-only is OK).")
     return True
 
 
-def _display_health_result(drive_name, health):
-    """Helper to print health check results."""
-    print(f"\n{drive_name} Drive:", file=sys.stderr)
-    print(f"  Space: {health.used_gb}GB used / {health.total_gb}GB total ({health.free_gb}GB free)", file=sys.stderr)
-    print(f"  Filesystem: {health.fstype}", file=sys.stderr)
-    print(f"  Writable: {'Yes' if health.is_writable else 'NO (READ-ONLY)'}", file=sys.stderr)
+def _display_health_result(ui, label, path, health):
+    """Helper to display health check results through the UI."""
+    ui.drive_header(label, path)
 
-    # Display benchmark result if available
+    space_str = f"{health.used_gb} GB used / {health.total_gb} GB total ({health.free_gb} GB free)"
+    ui.kv("Space", space_str)
+
+    fstype = health.fstype if health.fstype and health.fstype != "UNKNOWN" else "Unknown"
+    ui.kv("Filesystem", fstype, 'warn' if fstype == "Unknown" else 'normal')
+
+    ui.kv("Writable", "Yes" if health.is_writable else "No — read-only",
+          'ok' if health.is_writable else 'warn')
+
     if health.benchmark_result:
         if health.benchmark_result.success:
-            print(f"  Read speed: {health.benchmark_result.speed_mbps:.1f} MB/s", file=sys.stderr)
+            ui.kv("Speed", f"{health.benchmark_result.speed_mbps:.1f} MB/s")
         else:
-            print(f"  Benchmark failed: {health.benchmark_result.error}", file=sys.stderr)
+            ui.kv("Speed", f"Failed: {health.benchmark_result.error}", 'warn')
 
-    if health.warnings:
-        for warning in health.warnings:
-            if "To fix:" in warning:
-                # Highlight fix instructions separately
-                fix_part = warning.split("To fix: ")[1] if "To fix: " in warning else warning
-                print(f"  FIX: {fix_part}", file=sys.stderr)
-            else:
-                print(f"  WARNING: {warning}", file=sys.stderr)
+    for warning in health.warnings:
+        if "To fix:" in warning:
+            fix_part = warning.split("To fix: ")[1] if "To fix: " in warning else warning
+            ui.warn(f"Fix: {fix_part}")
+        else:
+            ui.warn(warning)
 
-    if health.errors:
-        for error in health.errors:
-            print(f"  ERROR: {error}", file=sys.stderr)
+    for err in health.errors:
+        ui.error(err)
 
 
 def _check_deletion_readiness(candidates: list) -> tuple:
@@ -406,19 +398,19 @@ def main(args=None):
     try:
         # If no paths provided, launch interactive drive picker
         if not args.keep or not args.other:
-            print("\n=== Interactive Drive Setup ===\n", file=sys.stderr)
-            print("Available mounted drives:\n", file=sys.stderr)
+            ui.section("Interactive Drive Setup")
+            ui.blank()
 
             selected = interactive_drive_picker()
             if selected is None:
-                print("Error: Could not complete drive selection.", file=sys.stderr)
+                ui.error("Could not complete drive selection.")
                 ui.close()
                 return 1
 
             args.keep = selected['keep']
             args.other = selected['other']
 
-            print(f"\nSelected: Keep={args.keep}, Other={args.other}\n", file=sys.stderr)
+            ui.ok(f"Keep: {args.keep}  |  Other: {args.other}")
 
         # Validate paths exist and are readable
         for path_name, path in [('--keep', args.keep), ('--other', args.other)]:
@@ -437,10 +429,10 @@ def main(args=None):
             return 1
 
         # Ask user to confirm before scan starts
-        print("\n=== Ready to Scan ===\n", file=sys.stderr)
-        confirm = input("Start scan? (y/n): ").strip().lower()
+        ui.section("Ready to Scan")
+        confirm = input("\n  Start scan? (y/n): ").strip().lower()
         if confirm not in ['y', 'yes']:
-            print("Scan cancelled.", file=sys.stderr)
+            print("Scan cancelled.")
             ui.close()
             return 0
 
@@ -486,15 +478,15 @@ def main(args=None):
         keep_errors = sum(1 for f in keep_result.files if f.error)
         other_errors = sum(1 for f in other_result.files if f.error)
         if keep_errors > 0 or other_errors > 0:
-            print(f"  Warning: {keep_errors} errors hashing keep files, {other_errors} errors in other files", file=sys.stderr)
+            ui.warn(f"{keep_errors} errors hashing keep files, {other_errors} errors in other files")
 
         # Classify duplicates
-        print("Classifying duplicates...", file=sys.stderr)
+        ui.ok("Classifying duplicates...")
         classifier = DuplicateClassifier(keep_result, other_result)
         classification = classifier.classify()
 
         # Write report
-        print("Writing report...", file=sys.stderr)
+        ui.ok("Writing report...")
         writer = ReportWriter(output_path=args.output)
         if args.format == 'json':
             writer.write_json(classification)
