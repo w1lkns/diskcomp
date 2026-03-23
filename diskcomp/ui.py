@@ -254,6 +254,29 @@ class RichProgressUI:
         """Print a blank line."""
         self.console.print()
 
+    def display_folder_list(self, folders: list) -> None:
+        """
+        Display a numbered list of folders for user selection.
+
+        Renders a formatted table with folder indices and paths. Styled with Rich
+        formatting (bold indices, cyan paths). Includes blank line after list.
+
+        Args:
+            folders: List of folder paths to display
+
+        Example:
+            display_folder_list(['/path/to/Photos', '/path/to/Videos'])
+            Output:
+              Folders to skip
+              1) /path/to/Photos
+              2) /path/to/Videos
+        """
+        self.console.print()
+        self.console.print("[bold cyan]Folders to skip[/bold cyan]")
+        for idx, folder in enumerate(folders, 1):
+            self.console.print(f"  [bold]{idx}[/bold])  {folder}")
+        self.console.print()
+
     def close(self):
         """Close the progress context."""
         if self.progress_context:
@@ -452,6 +475,29 @@ class ANSIProgressUI:
 
     def blank(self):
         """Print a blank line."""
+        print()
+
+    def display_folder_list(self, folders: list) -> None:
+        """
+        Display a numbered list of folders for user selection.
+
+        Renders a formatted list with folder indices and paths. Styled with ANSI
+        codes (bold indices, cyan paths). Includes blank line after list.
+
+        Args:
+            folders: List of folder paths to display
+
+        Example:
+            display_folder_list(['/path/to/Photos', '/path/to/Videos'])
+            Output:
+              Folders to skip
+              1) /path/to/Photos
+              2) /path/to/Videos
+        """
+        print()
+        print(f"  {BOLD}{CYAN}Folders to skip{RESET}")
+        for idx, folder in enumerate(folders, 1):
+            print(f"    {BOLD}{idx}{RESET})  {folder}")
         print()
 
     def close(self):
