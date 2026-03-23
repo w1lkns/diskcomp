@@ -44,6 +44,17 @@ class TestFileScanner(unittest.TestCase):
         file_names = [f.path for f in result.files]
         assert not any(".DS_Store" in f for f in file_names), ".DS_Store should be excluded"
 
+    def test_scan_skips_appledouble_files(self):
+        """Test that scanner skips AppleDouble resource fork files (._filename)."""
+        # macOS creates these on non-HFS+ volumes (FAT32, NTFS, exFAT)
+        Path(self.test_dir, "._DS_Store").write_bytes(b"\x00\x05\x16\x07" * 100)
+        Path(self.test_dir, "._photo.jpg").write_bytes(b"\x00\x05\x16\x07" * 100)
+        scanner = FileScanner(self.test_dir)
+        result = scanner.scan()
+        file_names = [f.path for f in result.files]
+        assert not any(os.path.basename(f).startswith("._") for f in file_names), \
+            "AppleDouble ._* files should be excluded"
+
     def test_scan_filters_small_files(self):
         """Test that scanner respects min_size_bytes."""
         # Create file < 1KB

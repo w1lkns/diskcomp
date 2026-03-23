@@ -54,6 +54,11 @@ def should_skip_file(name: str, platform: str) -> bool:
     Returns:
         True if the name matches noise patterns and should be skipped
     """
+    # AppleDouble resource fork files (created by macOS on non-HFS+ volumes)
+    # These appear as ._filename on FAT/NTFS/exFAT drives and should always be skipped
+    if name.startswith('._'):
+        return True
+
     # Always check 'all' patterns
     if name in NOISE_PATTERNS['all']:
         return True
