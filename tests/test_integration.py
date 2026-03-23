@@ -238,8 +238,8 @@ class TestPhase3Integration(unittest.TestCase):
         mock_reporter_class.return_value = mock_reporter
 
         # Interactive mode: '1' selects "Compare two drives" from menu,
-        # 'y' confirms scan, '3' exits action menu
-        mock_input.side_effect = ['1', 'y', '3']
+        # 'y' confirms scan, '6' exits post-scan menu (no deletion)
+        mock_input.side_effect = ['1', 'y', '6']
 
         # Call main with empty args (triggers interactive mode)
         from diskcomp.cli import parse_args
