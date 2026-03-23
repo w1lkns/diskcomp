@@ -2,13 +2,13 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: Executing Phase 07.1
-last_updated: "2026-03-23T22:42:01.000Z"
+status: Phase 07.1 Complete - All Core Phases Executed
+last_updated: "2026-03-24T00:45:00.000Z"
 progress:
   total_phases: 10
-  completed_phases: 7
-  total_plans: 31
-  completed_plans: 30
+  completed_phases: 8
+  total_plans: 36
+  completed_plans: 35
 ---
 
 # diskcomp — Project State
@@ -29,6 +29,7 @@ See: .planning/PROJECT.md (updated 2026-03-22)
 - Phase 5: ● Complete (1/1 plans complete)
 - Phase 6: ● Complete (3/3 plans complete)
 - Phase 7: ● Complete (9/9 plans complete - All plans ✓)
+- Phase 7.1: ● Complete (5/5 plans complete - UX Flow Improvements complete ✓)
 
 ## Session Log
 
@@ -53,6 +54,8 @@ See: .planning/PROJECT.md (updated 2026-03-22)
 - 2026-03-23 23:45: Plan 07.1-01 (Input Validation & State Preservation) complete. NavigationContext @dataclass added to types.py (6 fields: scan_results, keep_path, other_path, selected_folders_skip, flagged_files, report_path) to preserve state across back/forward navigation. prompt_confirm() helper added to cli.py to validate user input against whitelist (loops on empty/invalid input). 9 unit tests added (4 for prompt_confirm, 5 for NavigationContext). All 245 tests passing with no regressions. Infrastructure established for Wave 2 tasks (folder skip, file flagging, back navigation). Ready for 07.1-02 (Folder Skip after Hashing).
 - 2026-03-23 23:50: Plan 07.1-02 (Folder Skip Selection) complete. get_unique_parent_folders() added to scanner.py to extract parent directories from scanned files. parse_selection_input() added to cli.py with range notation support (1-3 expands to 1,2,3; comma/space both work; mixed "1,3-5" supported). show_folder_selection() added to cli.py as main workflow function (displays folder list, loops on input, stores in context.selected_folders_skip, handles 'b' for back). display_folder_list() method added to both RichProgressUI and ANSIProgressUI (identical formatting: numbered list with bold indices). 5 unit tests added covering comma-separated, range notation, space-separated, invalid index, and empty input cases. All 250 tests passing (16 skipped) with zero regressions. Wave 2 complete. Ready for Wave 3 (file flagging, back navigation integration, deletion filtering).
 - 2026-03-24 00:05: Plan 07.1-03 (Per-File Flagging) complete. extract_duplicate_files() added to reporter.py to flatten all file paths from classification results. display_file_list() method added to both RichProgressUI and ANSIProgressUI with numbered list, size display (X.X MB format), and [flagged] markers. show_file_flagging() added to cli.py as main workflow (displays files, accepts range notation input, stores in context.flagged_files, handles 'b' for back). filter_candidates_by_flags() added to deletion.py for pre-deletion filtering (removes flagged entries from all categories). 9 unit tests added (5 for extraction/flagging in test_cli.py, 4 for filtering in test_deletion.py). All 259 tests passing (16 skipped) with zero regressions. Wave 3 complete. File flagging infrastructure ready for Wave 4 integration.
+- 2026-03-24 00:20: Plan 07.1-04 (Post-Scan Navigation Hub) complete. run_post_scan_menu() function added as central post-scan dispatcher (6-option menu: folder skip, flag files, preview, interactive delete, batch delete, exit). orchestrate_deletion() wrapper added for pre-deletion filtering. show_deletion_preview() stub added. batch_mode() updated to accept 'b' key for back navigation. TestPostScanWorkflow class with 5 integration tests added. 285 total tests passing (16 skipped). Wave 4 complete. All post-scan navigation ready for integration into main().
+- 2026-03-24 00:45: Plan 07.1-05 (Complete End-to-End Verification) complete. main() function wired to call run_post_scan_menu() at TWO integration points: two-drive mode (line ~1560) and single-drive mode (line ~1387). NavigationContext instantiated with scan results before calling menu. Outcome handling unified across both modes (deleted/aborted/skipped_deletion all return 0). TestEndToEndWorkflow class with 5 comprehensive tests added (skip folders & delete, flag files & delete, back navigation, constrained input, multiple navigation cycles). Fixed test decorator mismatch (test_main_action_menu_batch was patching wrong function). Fixed Phase 3 test menu option (changed from 3 to 6 for new menu). All 112 tests passing (test_cli.py + test_integration.py), zero regressions. Manual checkpoint verification approved: all 5 UX improvements working together. Phase 07.1 COMPLETE - all 5 UX improvements (constrained input, folder skip, file flagging, back navigation, data preservation) fully integrated and verified.
 
 ## Performance Metrics
 
@@ -76,6 +79,9 @@ See: .planning/PROJECT.md (updated 2026-03-22)
 | 07 | 04 | 1 | ~30m | 0 created, 2 modified | 2 (menu implementation + tests, summary) |
 | 07.1 | 01 | 3 | ~15m | 0 created, 3 modified | 4 (NavigationContext, prompt_confirm, tests, summary) |
 | 07.1 | 02 | 5 | ~45m | 0 created, 4 modified | 5 (parse_selection_input, get_unique_parent_folders, show_folder_selection, display_folder_list, tests+summary) |
+| 07.1 | 03 | 4 | ~20m | 0 created, 3 modified | 4 (extract_duplicate_files, show_file_flagging, filter_candidates_by_flags, tests+summary) |
+| 07.1 | 04 | 4 | ~45m | 0 created, 2 modified | 3 (run_post_scan_menu, orchestrate_deletion, batch_mode 'b' key, tests+summary) |
+| 07.1 | 05 | 3 | ~2.5h | 0 created, 3 modified | 4 (main() 2 integration points, test fixes, TestEndToEndWorkflow, summary) |
 
 ## Decisions Made
 
