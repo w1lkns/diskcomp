@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: Executing Phase 07.1
-last_updated: "2026-03-23T23:45:00.000Z"
+last_updated: "2026-03-23T23:50:00.000Z"
 progress:
   total_phases: 10
   completed_phases: 7
   total_plans: 31
-  completed_plans: 28
+  completed_plans: 29
 ---
 
 # diskcomp — Project State
@@ -51,6 +51,7 @@ See: .planning/PROJECT.md (updated 2026-03-22)
 - 2026-03-23 12:25: Plan 07-04 (First-Run Wizard Menu) complete. Implemented show_first_run_menu() function with 4 options (1=two drives, 2=single drive, 3=help, 4=quit) and show_help_guide() with plain-English explanation of diskcomp, both modes, and 3 safety facts (D-07 through D-11). Menu displayed after startup banner in interactive mode, loops on invalid input. Menu routing: quit exits cleanly, help shows guide + loops, two_drives/single_drive break to respective flows. Added 10 comprehensive tests (7 for menu + 3 for help), updated 3 TestInteractiveMode tests with menu mocks. All 39 CLI tests passing (29 existing + 10 new). First-run experience now friendly and menu-driven. Ready for Phase 7 Plan 05 (Single-Drive Dedup).
 - 2026-03-23 13:40: Phase 7 COMPLETE. Plans 05, 06, 07, 08, 09 executed successfully. Complete main() orchestration integrates all Phase 7 features: startup banner → first-run menu → two-drive or single-drive scan → summary/next-steps → action menu → (optional) deletion. Both modes share identical post-scan UX. All 250+ tests passing with zero regressions. Interactive mode fully functional with graceful cancellation at multiple points. Single-drive mode integrated alongside two-drive mode with shared workflows. Action menu conditionally displayed (only if duplicates found). Full deletion workflow integrated for both modes. 07-09-SUMMARY.md created documenting complete integration. Phase 7 (UX Polish) now ready for release or Phase 8 work.
 - 2026-03-23 23:45: Plan 07.1-01 (Input Validation & State Preservation) complete. NavigationContext @dataclass added to types.py (6 fields: scan_results, keep_path, other_path, selected_folders_skip, flagged_files, report_path) to preserve state across back/forward navigation. prompt_confirm() helper added to cli.py to validate user input against whitelist (loops on empty/invalid input). 9 unit tests added (4 for prompt_confirm, 5 for NavigationContext). All 245 tests passing with no regressions. Infrastructure established for Wave 2 tasks (folder skip, file flagging, back navigation). Ready for 07.1-02 (Folder Skip after Hashing).
+- 2026-03-23 23:50: Plan 07.1-02 (Folder Skip Selection) complete. get_unique_parent_folders() added to scanner.py to extract parent directories from scanned files. parse_selection_input() added to cli.py with range notation support (1-3 expands to 1,2,3; comma/space both work; mixed "1,3-5" supported). show_folder_selection() added to cli.py as main workflow function (displays folder list, loops on input, stores in context.selected_folders_skip, handles 'b' for back). display_folder_list() method added to both RichProgressUI and ANSIProgressUI (identical formatting: numbered list with bold indices). 5 unit tests added covering comma-separated, range notation, space-separated, invalid index, and empty input cases. All 250 tests passing (16 skipped) with zero regressions. Wave 2 complete. Ready for Wave 3 (file flagging, back navigation integration, deletion filtering).
 
 ## Performance Metrics
 
@@ -73,6 +74,7 @@ See: .planning/PROJECT.md (updated 2026-03-22)
 | 07 | 03 | 1 | ~4m | 0 created, 2 modified | 1 (banner feature, test suite, summary) |
 | 07 | 04 | 1 | ~30m | 0 created, 2 modified | 2 (menu implementation + tests, summary) |
 | 07.1 | 01 | 3 | ~15m | 0 created, 3 modified | 4 (NavigationContext, prompt_confirm, tests, summary) |
+| 07.1 | 02 | 5 | ~45m | 0 created, 4 modified | 5 (parse_selection_input, get_unique_parent_folders, show_folder_selection, display_folder_list, tests+summary) |
 
 ## Decisions Made
 
@@ -197,6 +199,14 @@ See: .planning/PROJECT.md (updated 2026-03-22)
 - NavigationContext uses `field(default_factory=set)` for selected_folders_skip and flagged_files to ensure independent instances (no shared mutable defaults)
 - prompt_confirm() and NavigationContext are foundational infrastructure only — NOT integrated into existing menus yet (Wave 2 tasks will integrate)
 
+### Phase 7.1 Plan 02 (Folder Skip Selection)
+
+- parse_selection_input() is standalone function (not a method) for reusability across file flagging and folder skip workflows
+- Range notation inclusive: "1-3" expands to [1, 2, 3] including both endpoints (matches user intuition)
+- Error handling in show_folder_selection(): all ValueError exceptions caught and displayed via ui.error(), loop continues (never crashes)
+- selected_folders_skip stored as set(paths) for O(1) membership checking during deletion filtering
+- display_folder_list() implemented identically in both RichProgressUI and ANSIProgressUI with identical formatting (bold index, path)
+
 ## Accumulated Context
 
 ### Roadmap Evolution
@@ -205,4 +215,4 @@ See: .planning/PROJECT.md (updated 2026-03-22)
 
 ## Next Action
 
-Phase 7.1 Plan 01 COMPLETE! 245 tests passing with no regressions. NavigationContext @dataclass added for state preservation across navigation (6 fields). prompt_confirm() helper added for constrained input validation (loops on empty/invalid). Infrastructure established for Wave 2 tasks (folder skip, file flagging). Ready for 07.1-02 (Folder Skip after Hashing).
+Phase 7.1 Plan 02 COMPLETE! 250 tests passing with zero regressions (16 skipped - Rich unavailable). get_unique_parent_folders() added to scanner.py. parse_selection_input() added to cli.py with full range notation support. show_folder_selection() integrated as main workflow. display_folder_list() implemented in both Rich and ANSI UI. 5 comprehensive tests added covering all input formats and error cases. Wave 2 complete. Ready for 07.1-03 (File Flagging & Deletion Filtering).

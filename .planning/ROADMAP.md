@@ -12,7 +12,8 @@
 - [x] **Phase 4: Guided Deletion** - Mode A/B deletion, undo log, read-only detection ✓ COMPLETE
 - [x] **Phase 5: Packaging + Distribution** - Single .py, pip, GitHub Actions CI ✓ COMPLETE
 - [x] **Phase 6: Performance** - Two-pass hashing (size filter → hash only candidates), skip uniques fast ✓ COMPLETE
-- [ ] **Phase 7: UX Polish + Single-Drive** - First-run wizard, plain-language results summary, single-drive dedup mode, action menu
+- [x] **Phase 7: UX Polish + Single-Drive** - First-run wizard, plain-language results summary, single-drive dedup mode, action menu ✓ COMPLETE
+- [ ] **Phase 7.1: UX Flow Improvements** (INSERTED) - Folder skip, file flagging, constrained input, back navigation (2/5 plans complete)
 - [ ] **Phase 8: Standalone Distribution** - PyInstaller binary, Homebrew formula, GitHub Releases
 - [ ] **Phase 9: Website** - One-page static site with download button, screenshots, Homebrew snippet
 
@@ -158,6 +159,25 @@ Plans:
 - [ ] 07-07-PLAN.md — Post-Scan Action Menu (show_action_menu, DeletionOrchestrator routing) ✓ PLANNED
 - [ ] 07-08-PLAN.md — NTFS Limitation Callout (health check warning, README Known Limitations) ✓ PLANNED
 - [ ] 07-09-PLAN.md — Full Integration & Verification (complete main flow, 187 tests pass) ✓ PLANNED
+
+### Phase 07.1: UX Flow Improvements (INSERTED)
+
+**Goal**: Five targeted UX fixes — folder skip, file flagging, constrained input, and broad back navigation throughout all non-executing screens.
+**Depends on**: Phase 7
+**Motivation**: Discovered mid-milestone. Folder skip prevents unnecessary work when users know certain folders are irrelevant. File flagging lets users protect specific files spotted during results review before any deletion runs. Constrained input prevents silent errors from empty/invalid keypresses. Back navigation gives users an escape hatch at any menu or decision point that isn't actively scanning or deleting — no more forced restarts.
+**Success Criteria**:
+  1. After hashing completes, user can select one or more folders to skip/exclude before proceeding to deletion
+  2. In the results review screen (before deletion), user can flag individual files to be skipped — flagged files are excluded from the deletion run entirely
+  3. All delete/skip/abort/confirm prompts only accept valid keys — empty input and invalid input re-prompt instead of silently doing nothing or crashing
+  4. Back navigation is available on every screen that is not actively executing a scan or deletion (menus, mode selection, results review, batch preview, confirmation steps)
+  5. Navigating back never loses previously gathered data (scan results, drive selections) — only restarts the current decision step
+
+Plans:
+- [x] 07.1-01-PLAN.md — Input Validation & State Preservation (NavigationContext @dataclass, prompt_confirm helper) ✓ COMPLETE
+- [x] 07.1-02-PLAN.md — Folder Skip Selection (get_unique_parent_folders, parse_selection_input, show_folder_selection, display_folder_list) ✓ COMPLETE
+- [ ] 07.1-03-PLAN.md — File Flagging & Deletion Filtering (TBD - Wave 3)
+- [ ] 07.1-04-PLAN.md — Back Navigation Integration (TBD - Wave 3)
+- [ ] 07.1-05-PLAN.md — Constrained Input Throughout (TBD - Wave 3)
 
 ### Phase 8: Standalone Distribution
 **Goal**: Non-developers can download and run diskcomp with zero setup. No Python required.
