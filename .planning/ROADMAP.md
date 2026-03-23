@@ -12,7 +12,7 @@
 - [x] **Phase 4: Guided Deletion** - Mode A/B deletion, undo log, read-only detection ✓ COMPLETE
 - [x] **Phase 5: Packaging + Distribution** - Single .py, pip, GitHub Actions CI ✓ COMPLETE
 - [x] **Phase 6: Performance** - Two-pass hashing (size filter → hash only candidates), skip uniques fast ✓ COMPLETE
-- [ ] **Phase 7: UX Polish** - First-run wizard, plain-language results summary, single-drive dedup mode
+- [ ] **Phase 7: UX Polish + Single-Drive** - First-run wizard, plain-language results summary, single-drive dedup mode, action menu
 - [ ] **Phase 8: Standalone Distribution** - PyInstaller binary, Homebrew formula, GitHub Releases
 - [ ] **Phase 9: Website** - One-page static site with download button, screenshots, Homebrew snippet
 
@@ -110,7 +110,7 @@ Plans:
 | 4. Guided Deletion | 3/3 | Complete    | 2026-03-22 |
 | 5. Packaging + Distribution | 1/1 | Complete    | 2026-03-23 |
 | 6. Performance | 3/3 | Complete    | 2026-03-23 |
-| 7. UX Polish | —   | Planned     | — |
+| 7. UX Polish + Single-Drive | —   | Planned     | — |
 | 8. Standalone Distribution | —   | Planned     | — |
 
 ### Phase 6: Performance
@@ -125,9 +125,9 @@ Plans:
 **Plans**: 3 plans
 
 Plans:
-- [ ] 06-01-PLAN.md — Size Filter + CLI Integration (filter_by_size_collision function, status line, wiring)
-- [ ] 06-02-PLAN.md — Testing + Benchmarks (unit tests for filter, performance benchmark, all tests pass)
-- [ ] 06-03-PLAN.md — UI Updates (progress bar 'candidates' terminology, both Rich and ANSI modes)
+- [x] 06-01-PLAN.md — Size Filter + CLI Integration (filter_by_size_collision function, status line, wiring) ✓ COMPLETE
+- [x] 06-02-PLAN.md — Testing + Benchmarks (unit tests for filter, performance benchmark, all tests pass) ✓ COMPLETE
+- [x] 06-03-PLAN.md — UI Updates (progress bar 'candidates' terminology, both Rich and ANSI modes) ✓ COMPLETE
 
 ### Phase 7: UX Polish + Single-Drive Mode
 **Goal**: First-time users understand the tool immediately; single-drive users get the same safe dedup experience without needing a second drive.
@@ -146,6 +146,18 @@ Plans:
   10. Post-scan action menu: after the summary, show "What next? 1) Review and delete interactively  2) Batch delete  3) Exit" — selecting 1 or 2 launches the existing deletion workflow immediately without requiring a separate `--delete-from` command
   11. Fix summary table: Unique (Keep) and Unique (Other) sizes display as 0.00 MB — unique file sizes must be correctly tallied and shown
   12. Summary table uses actual drive name / path as labels instead of "Keep" / "Other" — use volume label or last path segment (e.g. "Unique in MySSD" / "Unique in Backup2TB"), falling back to full path if no label
+**Plans**: 9 plans
+
+Plans:
+- [ ] 07-01-PLAN.md — Summary Table Bug Fix (tally unique sizes correctly, accept label parameters) ✓ PLANNED
+- [ ] 07-02-PLAN.md — --min-size Flag (parse_size_value helper, human-readable sizes, CLI integration) ✓ PLANNED
+- [ ] 07-03-PLAN.md — Startup Banner (show_startup_banner function, interactive-mode only, version from importlib.metadata) ✓ PLANNED
+- [ ] 07-04-PLAN.md — First-Run Wizard Menu (show_first_run_menu function, 4 options, help guide) ✓ PLANNED
+- [ ] 07-05-PLAN.md — Plain-Language Summary + Next Steps (show_plain_language_summary, show_next_steps functions) ✓ PLANNED
+- [ ] 07-06-PLAN.md — Single-Drive Mode (--single flag, group_by_hash_single_drive, group_by_size_single_drive) ✓ PLANNED
+- [ ] 07-07-PLAN.md — Post-Scan Action Menu (show_action_menu, DeletionOrchestrator routing) ✓ PLANNED
+- [ ] 07-08-PLAN.md — NTFS Limitation Callout (health check warning, README Known Limitations) ✓ PLANNED
+- [ ] 07-09-PLAN.md — Full Integration & Verification (complete main flow, 187 tests pass) ✓ PLANNED
 
 ### Phase 8: Standalone Distribution
 **Goal**: Non-developers can download and run diskcomp with zero setup. No Python required.
@@ -178,3 +190,4 @@ Plans:
 *v1.1 phases revised: 2026-03-23 — Phase 7 expanded with first-run wizard + plain-language results; Phase 9 replaced Claude Code skill with website; SMART data and Claude skill deferred as low adoption impact*
 *Phase 6 plans created: 2026-03-23 — 3 plans (size filter, testing, UI updates)*
 *Phase 6 complete: 2026-03-23 — 187 tests passing, ≥5× speedup validated*
+*Phase 7 plans created: 2026-03-23 — 9 plans (summary table fix, --min-size, banner, wizard, plain-language summary, single-drive mode, action menu, NTFS callout, full integration)*
