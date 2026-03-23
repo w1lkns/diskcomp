@@ -142,6 +142,7 @@ Plans:
   6. NTFS-on-macOS limitation called out explicitly in health check output and README
   7. `--keep` / `--other` flag names retained as-is — aliases dropped; ambiguous names create deletion safety risk
   8. Startup banner shown in interactive (no-args) mode: ASCII art "diskcomp" logo, version, one-line tagline — not shown when flags are passed directly
+  9. `--min-size <value>` flag (e.g. `10MB`, `500KB`) overrides the default 1KB floor; interactive wizard prompts "Skip files smaller than? [1KB]" with the flag value as the suggested default
 
 ### Phase 8: Standalone Distribution
 **Goal**: Non-developers can download and run diskcomp with zero setup. No Python required.
