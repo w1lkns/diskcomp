@@ -701,9 +701,9 @@ class TestNextSteps(unittest.TestCase):
         report_path = '/tmp/report.csv'
         show_next_steps(report_path)
         output = mock_stdout.getvalue()
-        # Check for border dashes
-        self.assertIn('──', output)
-        self.assertIn('─' * 60, output)
+        # Check for border dashes (ASCII for cross-platform compatibility)
+        self.assertIn('--', output)
+        self.assertIn('-' * 60, output)
 
 
 class TestSingleDriveMode(unittest.TestCase):

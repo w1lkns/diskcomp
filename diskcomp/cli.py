@@ -444,7 +444,11 @@ def show_startup_banner():
  v{ver}
     """.strip()
 
-    print(banner)
+    try:
+        print(banner)
+    except UnicodeEncodeError:
+        # Fallback for terminals without Unicode support (e.g. Windows cp1252)
+        print(f"diskcomp v{ver} - Find duplicates. Free space. Stay safe.")
     print()
 
 
@@ -502,11 +506,11 @@ def show_next_steps(report_path: str):
     today = datetime.now().strftime('%Y%m%d')
     undo_hint = f"~/diskcomp-undo-{today}.json"
 
-    print("── Next steps " + "─" * 40)
+    print("-- Next steps " + "-" * 40)
     print(f"Review:  cat {report_path}")
     print(f"Delete:  diskcomp --delete-from {report_path}")
     print(f"Undo:    diskcomp --undo {undo_hint}")
-    print("─" * 60)
+    print("-" * 60)
     print()
 
 
