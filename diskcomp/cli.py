@@ -459,9 +459,27 @@ def main(args=None):
             ui.close()
             return 0
 
-        # Hash all files with UI callback
-        ui.start_hash(len(keep_result.files) + len(other_result.files))
-        all_records = keep_result.files + other_result.files
+        # Apply size filter (two-pass optimization)
+        from diskcomp.hasher import filter_by_size_collision
+
+        keep_filtered, other_filtered, filter_stats = filter_by_size_collision(
+            keep_result.files,
+            other_result.files
+        )
+
+        # Print size filter status line per D-03
+        pct_skipped = filter_stats['pct_skipped']
+        total_files = filter_stats['total_scanned']
+        candidates = filter_stats['candidate_count']
+        status_line = f"Size filter: {total_files:,} files → {candidates:,} candidates ({pct_skipped}% skipped)"
+        ui.ok(status_line)
+
+        # Combine filtered records for hashing
+        all_records_filtered = keep_filtered + other_filtered
+
+        # Hash only candidates with UI callback
+        ui.start_hash(len(all_records_filtered))
+        all_records = all_records_filtered
 
         def on_file_hashed_callback(current, total, speed_mbps, eta_secs):
             ui.on_file_hashed(current, total, speed_mbps, eta_secs)
@@ -470,9 +488,9 @@ def main(args=None):
         hashed_records = hasher.hash_files(all_records, on_file_hashed_callback)
 
         # Split back into keep/other
-        keep_count = len(keep_result.files)
-        keep_result.files = hashed_records[:keep_count]
-        other_result.files = hashed_records[keep_count:]
+        keep_count_filtered = len(keep_filtered)
+        keep_result.files = hashed_records[:keep_count_filtered]
+        other_result.files = hashed_records[keep_count_filtered:]
 
         # Count files with errors
         keep_errors = sum(1 for f in keep_result.files if f.error)
