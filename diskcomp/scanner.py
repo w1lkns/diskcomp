@@ -14,6 +14,42 @@ from typing import Optional, Callable
 from diskcomp.types import FileRecord, ScanResult, ScanError, InvalidPathError
 
 
+def get_unique_parent_folders(files: list) -> list:
+    """
+    Extract top-level parent folders from a list of scanned files.
+
+    Used by the folder skip selection UI to present a numbered list of unique
+    directory trees that the user can exclude from deletion before proceeding.
+
+    Args:
+        files: List of FileRecord objects from a scan result
+
+    Returns:
+        Sorted list of unique parent directory paths (strings). Empty list if
+        no files provided or all files have no parent.
+
+    Example:
+        files: [
+            FileRecord(path='/mnt/drive/Photos/pic1.jpg', ...),
+            FileRecord(path='/mnt/drive/Photos/pic2.jpg', ...),
+            FileRecord(path='/mnt/drive/Videos/video1.mp4', ...),
+        ]
+        Returns: ['/mnt/drive/Photos', '/mnt/drive/Videos']
+    """
+    if not files:
+        return []
+
+    unique_parents = set()
+    for file_record in files:
+        # Extract parent directory from the file's path
+        parent_dir = os.path.dirname(file_record.path)
+        if parent_dir:
+            unique_parents.add(parent_dir)
+
+    # Return sorted list for consistent ordering
+    return sorted(list(unique_parents))
+
+
 # OS noise patterns to skip during scanning
 NOISE_PATTERNS = {
     'all': [
