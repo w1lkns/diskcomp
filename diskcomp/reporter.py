@@ -438,9 +438,68 @@ class ReportReader:
             return ReportReader.load_csv(file_path)
 
 
+def extract_duplicate_files(results: dict) -> list:
+    """
+    Extract all file paths from a classification dict for UI display.
+
+    Takes the output from DuplicateClassifier.classify() and flattens all individual
+    file records (from duplicates, unique_in_keep, unique_in_other) into a single
+    list of path strings. Used by file flagging UI to display all candidate files
+    for user selection.
+
+    Args:
+        results: Classification dict from DuplicateClassifier.classify() with structure:
+                 {
+                     'duplicates': [{'keep_path': str, 'other_path': str, ...}, ...],
+                     'unique_in_keep': [{'keep_path': str, ...}, ...],
+                     'unique_in_other': [{'other_path': str, ...}, ...],
+                     'summary': {...}
+                 }
+
+    Returns:
+        List of unique file paths (strings) sorted alphabetically. Returns empty list
+        if results is None or empty.
+
+    Examples:
+        >>> results = {
+        ...     'duplicates': [{'keep_path': 'a.txt', 'other_path': 'b.txt', ...}],
+        ...     'unique_in_keep': [{'keep_path': 'c.txt', ...}],
+        ...     'unique_in_other': [{'other_path': 'd.txt', ...}],
+        ...     'summary': {...}
+        ... }
+        >>> extract_duplicate_files(results)
+        ['a.txt', 'b.txt', 'c.txt', 'd.txt']
+    """
+    if not results:
+        return []
+
+    file_paths = set()
+
+    # Extract from duplicates (both keep and other paths)
+    for item in results.get('duplicates', []):
+        if item.get('keep_path'):
+            file_paths.add(item['keep_path'])
+        if item.get('other_path'):
+            file_paths.add(item['other_path'])
+
+    # Extract from unique_in_keep
+    for item in results.get('unique_in_keep', []):
+        if item.get('keep_path'):
+            file_paths.add(item['keep_path'])
+
+    # Extract from unique_in_other
+    for item in results.get('unique_in_other', []):
+        if item.get('other_path'):
+            file_paths.add(item['other_path'])
+
+    # Return sorted list
+    return sorted(list(file_paths))
+
+
 # Example usage (commented out):
 # classifier = DuplicateClassifier(keep_result, other_result)
 # classification = classifier.classify()
 # writer = ReportWriter(output_dir="/tmp")
 # writer.write_csv(classification)
 # writer.write_json(classification)
+# files = extract_duplicate_files(classification)
