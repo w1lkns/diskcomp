@@ -62,6 +62,18 @@ Make diskcomp feel like a product, not a script. Three improvements: (1) a first
 - **D-19:** In health check output, when fstype is NTFS and platform is macOS/Linux, show a named callout: `"⚠ NTFS on macOS: This drive is read-only. Files cannot be deleted from it here."` with fix instructions already implemented by Phase 3 (`get_fix_instructions()`).
 - **D-20:** README: add a "Known Limitations" section noting NTFS-on-macOS read-only limitation and linking to fix instructions.
 
+### Post-Scan Action Menu
+
+- **D-23:** After the scan summary (plain-language results), show an action menu instead of exiting:
+  ```
+  What next?
+    1) Review and delete interactively
+    2) Batch delete (preview + confirm)
+    3) Exit (report saved)
+  ```
+  Selecting 1 or 2 launches the existing `DeletionOrchestrator` immediately (same as `--delete-from` workflow but using the just-generated report path). Selecting 3 shows the next-steps block and exits. This applies to both two-drive and `--single` modes.
+- **D-24:** If 0 duplicates found, skip the action menu entirely — show the "no duplicates" message and exit cleanly.
+
 ### Preserved Decisions (from prior phases)
 
 - **D-21:** `--keep` / `--other` flag names retained as-is. No aliases added.
