@@ -174,7 +174,7 @@ def build_single_file():
     for module_name in MODULES_IN_ORDER:
         module_path = diskcomp_dir / module_name
         if not module_path.exists():
-            print(f"⚠ Warning: {module_name} not found, skipping")
+            print(f"WARNING: {module_name} not found, skipping")
             continue
 
         print(f"  Reading {module_name}...", end=" ")
@@ -189,7 +189,7 @@ def build_single_file():
         processed = read_and_process_module(module_path)
         module_codes.append((module_name, processed))
 
-        print("✓")
+        print("ok")
 
     # Build sorted, consolidated import lines (one per stdlib module)
     all_import_lines = []
@@ -221,7 +221,7 @@ def build_single_file():
             f.write(code)
             f.write("\n\n")
 
-    print(f"\n✓ Generated {output_file} ({len(module_codes)} modules, {len(sorted_imports)} stdlib imports)")
+    print(f"\nGenerated {output_file} ({len(module_codes)} modules, {len(sorted_imports)} stdlib imports)")
     return output_file
 
 
