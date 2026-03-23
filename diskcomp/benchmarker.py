@@ -52,8 +52,8 @@ def benchmark_read_speed(
         # Allow disk cache to settle
         time.sleep(0.1)
 
-        # Measure read speed
-        start_time = time.time()
+        # Measure read speed (perf_counter has nanosecond resolution on all platforms)
+        start_time = time.perf_counter()
         bytes_read = 0
 
         with open(temp_path, 'rb') as f:
@@ -63,7 +63,7 @@ def benchmark_read_speed(
                     break
                 bytes_read += len(chunk)
 
-        elapsed = time.time() - start_time
+        elapsed = time.perf_counter() - start_time
 
         # Calculate speed in MB/s
         if elapsed > 0:
