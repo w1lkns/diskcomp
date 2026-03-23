@@ -8,9 +8,10 @@ from diskcomp.cli import (
     parse_args, main, display_health_checks, _display_health_result,
     parse_size_value, show_first_run_menu, show_help_guide,
     show_plain_language_summary, show_next_steps, show_action_menu,
-    prompt_confirm, parse_selection_input
+    prompt_confirm, parse_selection_input, show_file_flagging
 )
-from diskcomp.types import HealthCheckResult, NavigationContext
+from diskcomp.types import HealthCheckResult, NavigationContext, FileRecord
+from diskcomp.reporter import extract_duplicate_files
 
 
 class TestCLIArgumentParsing(unittest.TestCase):
@@ -1307,6 +1308,111 @@ class TestParseSelectionInput(unittest.TestCase):
         with self.assertRaises(ValueError) as cm:
             parse_selection_input("", max_index=5)
         self.assertIn("No valid selections made", str(cm.exception))
+
+
+class TestExtractDuplicateFiles(unittest.TestCase):
+    """Test suite for extract_duplicate_files function."""
+
+    def test_extract_duplicate_files_flattens_all_files(self):
+        """Test extract_duplicate_files() flattens duplicates and unique files."""
+        results = {
+            'duplicates': [
+                {'keep_path': 'keep/a.txt', 'other_path': 'other/a.txt', 'size_mb': 1.0, 'hash': 'abc123'},
+                {'keep_path': 'keep/b.txt', 'other_path': 'other/b.txt', 'size_mb': 2.0, 'hash': 'def456'},
+            ],
+            'unique_in_keep': [
+                {'keep_path': 'keep/unique.txt', 'other_path': None, 'size_mb': 0.5, 'hash': 'ghi789'},
+            ],
+            'unique_in_other': [
+                {'keep_path': None, 'other_path': 'other/unique.txt', 'size_mb': 0.7, 'hash': 'jkl012'},
+            ],
+            'summary': {}
+        }
+
+        files = extract_duplicate_files(results)
+
+        # Should have 6 unique paths total
+        self.assertEqual(len(files), 6)
+        self.assertIn('keep/a.txt', files)
+        self.assertIn('other/a.txt', files)
+        self.assertIn('keep/b.txt', files)
+        self.assertIn('other/b.txt', files)
+        self.assertIn('keep/unique.txt', files)
+        self.assertIn('other/unique.txt', files)
+
+        # Should be sorted
+        self.assertEqual(files, sorted(files))
+
+    def test_extract_duplicate_files_handles_empty_results(self):
+        """Test extract_duplicate_files() handles empty results gracefully."""
+        results = {
+            'duplicates': [],
+            'unique_in_keep': [],
+            'unique_in_other': [],
+            'summary': {}
+        }
+
+        files = extract_duplicate_files(results)
+        self.assertEqual(files, [])
+
+    def test_extract_duplicate_files_handles_none_input(self):
+        """Test extract_duplicate_files() handles None input gracefully."""
+        files = extract_duplicate_files(None)
+        self.assertEqual(files, [])
+
+    def test_show_file_flagging_displays_list_and_accepts_input(self):
+        """Test show_file_flagging() displays files and stores flagged selections."""
+        context = NavigationContext(
+            scan_results={
+                'duplicates': [
+                    {'keep_path': '/path/a.txt', 'other_path': '/path/a_dup.txt', 'size_mb': 1.0, 'hash': 'abc'},
+                    {'keep_path': '/path/b.txt', 'other_path': '/path/b_dup.txt', 'size_mb': 2.0, 'hash': 'def'},
+                ],
+                'unique_in_keep': [],
+                'unique_in_other': [],
+                'summary': {}
+            }
+        )
+
+        mock_ui = MagicMock()
+
+        # Mock input to return "1,3"
+        with patch('diskcomp.cli.input', return_value='1,3'):
+            result = show_file_flagging(context, mock_ui)
+
+        # Should have stored flagged files (indices 1 and 3)
+        self.assertIsNotNone(result.flagged_files)
+        # The actual paths depend on file system, so we just check it's not empty
+        self.assertGreater(len(result.flagged_files), 0)
+
+        # Should have called display_file_list
+        mock_ui.display_file_list.assert_called_once()
+
+        # Should have shown confirmation message
+        mock_ui.ok.assert_called()
+
+    def test_show_file_flagging_returns_context_unchanged_on_back(self):
+        """Test show_file_flagging() returns context unchanged when user presses 'b'."""
+        context = NavigationContext(
+            scan_results={
+                'duplicates': [
+                    {'keep_path': '/path/a.txt', 'other_path': '/path/a_dup.txt', 'size_mb': 1.0, 'hash': 'abc'},
+                ],
+                'unique_in_keep': [],
+                'unique_in_other': [],
+                'summary': {}
+            },
+            flagged_files={'some_existing_path.txt'}
+        )
+
+        mock_ui = MagicMock()
+
+        # Mock input to return 'b' (back)
+        with patch('diskcomp.cli.input', return_value='b'):
+            result = show_file_flagging(context, mock_ui)
+
+        # Should return context with flagged_files unchanged
+        self.assertEqual(result.flagged_files, {'some_existing_path.txt'})
 
 
 if __name__ == '__main__':

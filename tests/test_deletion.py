@@ -12,7 +12,7 @@ from unittest.mock import Mock, MagicMock, patch, call
 from io import StringIO
 
 from diskcomp.types import UndoEntry, DeletionResult
-from diskcomp.deletion import UndoLog, DeletionOrchestrator
+from diskcomp.deletion import UndoLog, DeletionOrchestrator, filter_candidates_by_flags
 from diskcomp.reporter import ReportReader
 
 
@@ -715,6 +715,91 @@ class TestUIHandlerDeletionMethods(unittest.TestCase):
         ui.start_deletion(10)
         ui.on_file_deleted(5, 10, 25.5)
         # Verify it doesn't raise
+
+
+class TestFilterCandidatesByFlags(unittest.TestCase):
+    """Test suite for filter_candidates_by_flags function."""
+
+    def test_filter_candidates_by_flags_removes_flagged(self):
+        """Test filter_candidates_by_flags() removes entries with flagged paths."""
+        results = {
+            'duplicates': [
+                {'keep_path': 'keep/a.txt', 'other_path': 'other/a.txt', 'size_mb': 1.0, 'hash': 'abc123'},
+                {'keep_path': 'keep/b.txt', 'other_path': 'other/b.txt', 'size_mb': 2.0, 'hash': 'def456'},
+            ],
+            'unique_in_keep': [],
+            'unique_in_other': [],
+            'summary': {'duplicate_count': 2}
+        }
+
+        flagged_files = {'keep/a.txt'}
+
+        filtered = filter_candidates_by_flags(results, flagged_files)
+
+        # Should have removed the entry with flagged keep/a.txt
+        self.assertEqual(len(filtered['duplicates']), 1)
+        self.assertEqual(filtered['duplicates'][0]['keep_path'], 'keep/b.txt')
+        self.assertEqual(filtered['duplicates'][0]['other_path'], 'other/b.txt')
+
+    def test_filter_candidates_by_flags_removes_empty_groups(self):
+        """Test filter_candidates_by_flags() removes entries that become empty after filtering."""
+        results = {
+            'duplicates': [
+                {'keep_path': 'keep/a.txt', 'other_path': 'other/a.txt', 'size_mb': 1.0, 'hash': 'abc123'},
+            ],
+            'unique_in_keep': [
+                {'keep_path': 'keep/unique.txt', 'other_path': None, 'size_mb': 0.5, 'hash': 'ghi789'},
+            ],
+            'unique_in_other': [],
+            'summary': {'duplicate_count': 1, 'unique_in_keep_count': 1}
+        }
+
+        # Flag the only duplicate entry
+        flagged_files = {'keep/a.txt', 'other/a.txt'}
+
+        filtered = filter_candidates_by_flags(results, flagged_files)
+
+        # Should have removed the duplicate group entirely
+        self.assertEqual(len(filtered['duplicates']), 0)
+        # Should keep the unique file (not flagged)
+        self.assertEqual(len(filtered['unique_in_keep']), 1)
+        self.assertEqual(filtered['unique_in_keep'][0]['keep_path'], 'keep/unique.txt')
+
+    def test_filter_candidates_by_flags_filters_unique_in_other(self):
+        """Test filter_candidates_by_flags() filters unique_in_other entries correctly."""
+        results = {
+            'duplicates': [],
+            'unique_in_keep': [],
+            'unique_in_other': [
+                {'keep_path': None, 'other_path': 'other/unique1.txt', 'size_mb': 1.0, 'hash': 'abc123'},
+                {'keep_path': None, 'other_path': 'other/unique2.txt', 'size_mb': 2.0, 'hash': 'def456'},
+            ],
+            'summary': {}
+        }
+
+        flagged_files = {'other/unique1.txt'}
+
+        filtered = filter_candidates_by_flags(results, flagged_files)
+
+        # Should keep only unique2
+        self.assertEqual(len(filtered['unique_in_other']), 1)
+        self.assertEqual(filtered['unique_in_other'][0]['other_path'], 'other/unique2.txt')
+
+    def test_filter_candidates_by_flags_handles_empty_flagged_set(self):
+        """Test filter_candidates_by_flags() returns results unchanged for empty flagged set."""
+        results = {
+            'duplicates': [
+                {'keep_path': 'keep/a.txt', 'other_path': 'other/a.txt', 'size_mb': 1.0, 'hash': 'abc123'},
+            ],
+            'unique_in_keep': [],
+            'unique_in_other': [],
+            'summary': {}
+        }
+
+        filtered = filter_candidates_by_flags(results, set())
+
+        # Should return results unchanged
+        self.assertEqual(filtered, results)
 
 
 if __name__ == "__main__":
