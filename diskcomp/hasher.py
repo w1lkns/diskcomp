@@ -161,3 +161,61 @@ class FileHasher:
             hashed_records.append(record)
 
         return hashed_records
+
+
+def filter_by_size_collision(
+    keep_records: List[FileRecord],
+    other_records: List[FileRecord],
+) -> tuple:
+    """
+    Filter file records by cross-drive size collision matching.
+
+    This function implements the two-pass optimization: identifies files that
+    could potentially be duplicates by checking if their file size exists on
+    the other drive. Files with sizes that don't appear on the other drive are
+    skipped entirely (not candidates for hashing).
+
+    The mechanism:
+    - A file from keep_records is a candidate only if at least one file on
+      other_records has the same size_bytes
+    - A file from other_records is a candidate only if at least one file on
+      keep_records has the same size_bytes
+    - This cross-drive intersection ensures we never hash files that cannot
+      possibly be duplicates
+
+    Args:
+        keep_records: List of FileRecord objects from the "keep" drive
+        other_records: List of FileRecord objects from the "other" drive
+
+    Returns:
+        Tuple of (filtered_keep, filtered_other, stats) where:
+        - filtered_keep: FileRecords from keep_records that have size matches on other drive
+        - filtered_other: FileRecords from other_records that have size matches on keep drive
+        - stats: dict with keys:
+            - total_scanned: int, original total count (len(keep_records) + len(other_records))
+            - candidate_count: int, filtered total count (len(filtered_keep) + len(filtered_other))
+            - pct_skipped: int, percentage skipped (0-100), calculated as
+              (total_scanned - candidate_count) * 100 // total_scanned
+    """
+    # Build sets of all sizes on each drive
+    other_sizes = {r.size_bytes for r in other_records}
+    keep_sizes = {r.size_bytes for r in keep_records}
+
+    # Filter: keep only records whose size exists on the other drive
+    filtered_keep = [r for r in keep_records if r.size_bytes in other_sizes]
+    filtered_other = [r for r in other_records if r.size_bytes in keep_sizes]
+
+    # Calculate stats
+    total_scanned = len(keep_records) + len(other_records)
+    candidate_count = len(filtered_keep) + len(filtered_other)
+    pct_skipped = 0
+    if total_scanned > 0:
+        pct_skipped = (total_scanned - candidate_count) * 100 // total_scanned
+
+    stats = {
+        'total_scanned': total_scanned,
+        'candidate_count': candidate_count,
+        'pct_skipped': pct_skipped,
+    }
+
+    return (filtered_keep, filtered_other, stats)
