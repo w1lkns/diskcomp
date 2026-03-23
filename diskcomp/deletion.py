@@ -292,7 +292,7 @@ class DeletionOrchestrator:
             total_mb = sum(float(c['size_mb']) for c in self.candidates)
             total_display = f"{total_mb / 1024:.1f} GB" if total_mb >= 1024 else f"{total_mb:.0f} MB"
 
-            print(f"\n── Batch Delete Preview ────────────────────────────────────────", file=sys.stderr)
+            print(f"\n-- Batch Delete Preview ----------------------------------------", file=sys.stderr)
             print(f"  Files to delete : {len(self.candidates):,}", file=sys.stderr)
             print(f"  Space to free   : {total_display}", file=sys.stderr)
 
@@ -326,7 +326,7 @@ class DeletionOrchestrator:
                     print(f"      Original: {original}", file=sys.stderr)
 
             print(f"\n  Safety: an undo log will be saved so you can recover files if needed.", file=sys.stderr)
-            print(f"────────────────────────────────────────────────────────────────────", file=sys.stderr)
+            print(f"--------------------------------------------------------------------", file=sys.stderr)
 
             # Phase 2: Confirmation
             confirm = input("\nType DELETE to proceed, or Ctrl+C to abort: ").strip()
