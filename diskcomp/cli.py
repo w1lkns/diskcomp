@@ -12,11 +12,12 @@ import os
 import sys
 from datetime import datetime
 
+from typing import List
 from diskcomp.scanner import FileScanner, get_unique_parent_folders
 from diskcomp.hasher import FileHasher
-from diskcomp.reporter import DuplicateClassifier, ReportWriter
+from diskcomp.reporter import DuplicateClassifier, ReportWriter, extract_duplicate_files
 from diskcomp.ui import UIHandler
-from diskcomp.types import ScanError, InvalidPathError, FileNotReadableError, NavigationContext
+from diskcomp.types import ScanError, InvalidPathError, FileNotReadableError, NavigationContext, FileRecord
 from diskcomp.drive_picker import interactive_drive_picker, interactive_single_drive_picker
 from diskcomp.health import check_drive_health, get_fix_instructions
 from diskcomp.benchmarker import benchmark_read_speed
@@ -236,6 +237,111 @@ def show_folder_selection(context: NavigationContext, ui) -> NavigationContext:
             else:
                 folder_list = ", ".join(sorted(selected_paths))
             ui.ok(f"Selected {len(selected_paths)} folder(s) to skip: {folder_list}")
+
+            return context
+
+        except ValueError as e:
+            # Invalid input - display error and loop again
+            ui.error(str(e))
+
+
+def show_file_flagging(context: NavigationContext, ui) -> NavigationContext:
+    """
+    Display file flagging UI and prompt user to select files to protect.
+
+    After hashing completes and user sees the summary, they can navigate to select
+    individual files to flag (mark as "do not delete"). Displays a numbered list of
+    all candidate files (from duplicates and unique files) with their sizes and accepts
+    comma/space-separated or range notation input (e.g., 1,3,5 or 1-3).
+
+    Args:
+        context: NavigationContext with scan_results already populated
+        ui: UIHandler instance for display and error messages
+
+    Returns:
+        Modified NavigationContext with flagged_files updated (set of absolute paths)
+
+    Behavior:
+        - Extracts all files from context.scan_results using extract_duplicate_files()
+        - If 0 files found: displays message and returns context unchanged
+        - If 1+ files found:
+            - Displays numbered file list with sizes
+            - Loops until user makes valid selection or presses 'b' to go back
+            - Validates input with parse_selection_input()
+            - Stores selected file paths in context.flagged_files (as set, union with existing)
+            - Displays confirmation message
+        - Handles errors gracefully: displays ui.error() and loops again
+
+    Example:
+        context = NavigationContext(scan_results={...})
+        context = show_file_flagging(context, ui)
+        # context.flagged_files now contains ['/path/to/file1.txt', '/path/to/file2.txt']
+    """
+    # Extract all files from scan results
+    if not context.scan_results:
+        ui.ok("No scan results available")
+        return context
+
+    # Get all file paths from the classification results
+    file_paths = extract_duplicate_files(context.scan_results)
+
+    # If no files found, return early
+    if not file_paths:
+        ui.ok("No files to flag")
+        return context
+
+    # Convert file paths to FileRecord objects for display
+    # Note: We only have paths here, not full FileRecord objects
+    # Create minimal FileRecord objects with path and placeholder size
+    files_to_display = []
+    for file_path in file_paths:
+        # Try to get file size from disk if it exists
+        file_size_bytes = 0
+        try:
+            if os.path.exists(file_path):
+                file_size_bytes = os.path.getsize(file_path)
+        except (OSError, IOError):
+            file_size_bytes = 0
+
+        file_record = FileRecord(
+            path=file_path,
+            rel_path=file_path,
+            size_bytes=file_size_bytes
+        )
+        files_to_display.append(file_record)
+
+    # Display the file list
+    ui.display_file_list(files_to_display, context.flagged_files)
+
+    # Loop until user makes valid selection or presses 'b' to go back
+    while True:
+        try:
+            user_input = input(
+                f"Enter file numbers to flag (e.g., 1,3,5 or 1-3), or 'b' to go back: "
+            ).strip()
+
+            # Check for back key
+            if user_input.lower() == 'b':
+                return context
+
+            # Parse the selection
+            selected_indices = parse_selection_input(user_input, len(files_to_display))
+
+            # Convert indices (1-based) to file paths
+            selected_paths = set()
+            for idx in selected_indices:
+                # idx is 1-based, convert to 0-based for list indexing
+                selected_paths.add(files_to_display[idx - 1].path)
+
+            # Union with existing flagged files (add to, don't replace)
+            context.flagged_files = context.flagged_files.union(selected_paths)
+
+            # Display confirmation
+            if len(selected_paths) == 1:
+                file_list = list(selected_paths)[0]
+            else:
+                file_list = ", ".join(sorted(selected_paths))
+            ui.ok(f"Flagged {len(selected_paths)} file(s). These will be excluded from deletion.")
 
             return context
 
