@@ -12,8 +12,9 @@ from unittest.mock import patch, MagicMock
 from diskcomp.scanner import FileScanner
 from diskcomp.hasher import FileHasher
 from diskcomp.reporter import DuplicateClassifier, ReportWriter
-from diskcomp.cli import main, parse_args
-from diskcomp.types import ScanResult, FileRecord, HealthCheckResult
+from diskcomp.cli import main, parse_args, run_post_scan_menu, orchestrate_deletion, show_folder_selection, show_file_flagging
+from diskcomp.types import ScanResult, FileRecord, HealthCheckResult, NavigationContext, DeletionResult
+from diskcomp.deletion import filter_candidates_by_flags
 
 
 class TestIntegration(unittest.TestCase):
@@ -717,6 +718,203 @@ class TestDeletionCLI(unittest.TestCase):
             self.assertEqual(result, 0)
         finally:
             shutil.rmtree(temp_dir)
+
+
+class TestPostScanWorkflow(unittest.TestCase):
+    """Integration tests for post-scan navigation workflow with back navigation and state preservation."""
+
+    def test_navigation_context_preserves_state_on_back(self):
+        """Verify NavigationContext preserves state when navigating back."""
+        # Create scan results dict with FileRecord objects in files_by_hash
+        scan_results = {
+            'files_by_hash': {
+                'hash1': [
+                    FileRecord(path='/folder/a/file1.txt', rel_path='file1.txt', size_bytes=1024),
+                    FileRecord(path='/folder/b/file2.txt', rel_path='file2.txt', size_bytes=1024)
+                ],
+                'hash2': [
+                    FileRecord(path='/folder/c/file3.txt', rel_path='file3.txt', size_bytes=1024)
+                ]
+            },
+            'duplicates': [
+                {'keep_path': '/folder/a/file1.txt', 'other_path': '/folder/b/file2.txt', 'size_mb': 1.0, 'hash': 'hash1'},
+            ],
+            'unique_in_keep': [],
+            'unique_in_other': [],
+            'summary': {}
+        }
+
+        # Create context with scan results
+        context = NavigationContext(
+            scan_results=scan_results,
+            keep_path='/folder/a',
+            other_path='/folder/b'
+        )
+
+        # Mock UI
+        ui = MagicMock()
+        ui.display_folder_list = MagicMock()
+        ui.ok = MagicMock()
+        ui.error = MagicMock()
+
+        # Call show_folder_selection to populate selected_folders_skip
+        with patch('builtins.input', side_effect=['1', 'b']):
+            # First call: user selects folder 1
+            result1 = show_folder_selection(context, ui)
+            initial_folders = result1.selected_folders_skip.copy() if result1.selected_folders_skip else set()
+
+            # Second call: user presses 'b' to go back (returns context unchanged)
+            result2 = show_folder_selection(result1, ui)
+
+        # Verify state was preserved across back navigation
+        self.assertEqual(result2.selected_folders_skip, initial_folders, "Folder selection should be preserved on back navigation")
+
+    def test_post_scan_menu_routes_to_folder_skip(self):
+        """Verify run_post_scan_menu routes to show_folder_selection on option 1."""
+        scan_results = {
+            'files_by_hash': {
+                'hash1': ['/path/file1.txt']
+            },
+            'duplicates': [],
+            'unique_in_keep': [],
+            'unique_in_other': [],
+            'summary': {}
+        }
+
+        context = NavigationContext(scan_results=scan_results)
+        ui = MagicMock()
+
+        # Mock input and show_folder_selection
+        with patch('builtins.input', side_effect=['1', '6']):
+            with patch('diskcomp.cli.show_folder_selection', return_value=context):
+                result = run_post_scan_menu(context, ui)
+
+        # Verify result is 'skipped_deletion' (user chose option 6: exit)
+        self.assertEqual(result, 'skipped_deletion')
+
+    def test_post_scan_menu_routes_to_file_flagging(self):
+        """Verify run_post_scan_menu routes to show_file_flagging on option 2."""
+        scan_results = {
+            'files_by_hash': {
+                'hash1': ['/path/file1.txt']
+            },
+            'duplicates': [],
+            'unique_in_keep': [],
+            'unique_in_other': [],
+            'summary': {}
+        }
+
+        context = NavigationContext(scan_results=scan_results)
+        ui = MagicMock()
+
+        # Mock input and show_file_flagging
+        with patch('builtins.input', side_effect=['2', '6']):
+            with patch('diskcomp.cli.show_file_flagging', return_value=context):
+                result = run_post_scan_menu(context, ui)
+
+        # Verify result is 'skipped_deletion' (user chose option 6: exit)
+        self.assertEqual(result, 'skipped_deletion')
+
+    def test_orchestrate_deletion_filters_flagged_files(self):
+        """Verify orchestrate_deletion filters flagged files before deletion."""
+        # Create scan results with duplicates
+        scan_results = {
+            'files_by_hash': {
+                'hash1': [
+                    FileRecord(path='/keep/file1.txt', rel_path='file1.txt', size_bytes=1048576),
+                    FileRecord(path='/other/file1.txt', rel_path='file1.txt', size_bytes=1048576)
+                ],
+                'hash2': [
+                    FileRecord(path='/keep/file2.txt', rel_path='file2.txt', size_bytes=1048576),
+                    FileRecord(path='/other/file2.txt', rel_path='file2.txt', size_bytes=1048576)
+                ]
+            },
+            'duplicates': [
+                {'keep_path': '/keep/file1.txt', 'other_path': '/other/file1.txt', 'size_mb': 1.0, 'hash': 'hash1'},
+                {'keep_path': '/keep/file2.txt', 'other_path': '/other/file2.txt', 'size_mb': 1.0, 'hash': 'hash2'}
+            ],
+            'unique_in_keep': [],
+            'unique_in_other': [],
+            'summary': {}
+        }
+
+        # Create context with one flagged file
+        context = NavigationContext(
+            scan_results=scan_results,
+            flagged_files={'/other/file1.txt'},  # Flag file1 to exclude from deletion
+            report_path='/tmp/report.csv'
+        )
+
+        ui = MagicMock()
+
+        # Create a temp directory for undo log
+        temp_dir = tempfile.mkdtemp()
+        try:
+            context.report_path = os.path.join(temp_dir, 'report.csv')
+
+            # Mock DeletionOrchestrator to capture what it receives
+            with patch('diskcomp.deletion.DeletionOrchestrator') as mock_orchestrator_class:
+                mock_orchestrator = MagicMock()
+                mock_orchestrator.batch_mode.return_value = DeletionResult(
+                    mode='batch',
+                    files_deleted=1,
+                    space_freed_mb=1.0,
+                    files_skipped=0,
+                    aborted=False,
+                    undo_log_path=os.path.join(temp_dir, 'undo.json'),
+                    errors=[]
+                )
+                mock_orchestrator_class.return_value = mock_orchestrator
+
+                # Call orchestrate_deletion
+                result = orchestrate_deletion(context, ui, mode='batch')
+
+                # Verify DeletionOrchestrator was called with filtered candidates
+                # (should be called once, with only file2, not file1)
+                mock_orchestrator_class.assert_called_once()
+                call_args = mock_orchestrator_class.call_args
+                candidates = call_args[1]['candidates'] if 'candidates' in call_args[1] else call_args[0][0]
+
+                # File1 should be filtered out, only file2 should remain
+                self.assertEqual(len(candidates), 1, "Only file2 should be in candidates (file1 is flagged)")
+                self.assertEqual(candidates[0]['keep_path'], '/keep/file2.txt')
+
+        finally:
+            shutil.rmtree(temp_dir, ignore_errors=True)
+
+    def test_run_post_scan_menu_returns_deleted_on_batch_completion(self):
+        """Verify run_post_scan_menu returns 'deleted' when batch deletion completes."""
+        scan_results = {
+            'files_by_hash': {},
+            'duplicates': [
+                {'keep_path': '/keep/file1.txt', 'other_path': '/other/file1.txt', 'size_mb': 1.0, 'hash': 'hash1'}
+            ],
+            'unique_in_keep': [],
+            'unique_in_other': [],
+            'summary': {}
+        }
+
+        context = NavigationContext(scan_results=scan_results)
+        ui = MagicMock()
+
+        # Mock input to select option 5 (batch deletion)
+        with patch('builtins.input', return_value='5'):
+            with patch('diskcomp.cli.orchestrate_deletion') as mock_orchestrate:
+                # Return successful deletion result
+                mock_orchestrate.return_value = DeletionResult(
+                    mode='batch',
+                    files_deleted=1,
+                    space_freed_mb=1.0,
+                    files_skipped=0,
+                    aborted=False,
+                    undo_log_path='/tmp/undo.json',
+                    errors=[]
+                )
+
+                result = run_post_scan_menu(context, ui)
+
+        # Verify result is 'deleted'
+        self.assertEqual(result, 'deleted')
 
 
 if __name__ == "__main__":
