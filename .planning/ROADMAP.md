@@ -125,14 +125,14 @@ Plans:
 ### Phase 7: UX Polish + Single-Drive Mode
 **Goal**: First-time users understand the tool immediately; single-drive users get the same safe dedup experience without needing a second drive.
 **Depends on**: Phase 6
-**Motivation**: `--keep` / `--other` naming is unclear; no summary before deletion; the most common use case ("my drive is full") requires two drives today.
+**Motivation**: No summary before deletion; the most common use case ("my drive is full") requires two drives today.
 **Success Criteria**:
   1. Pre-deletion summary shown: total duplicates found, total MB recoverable, before any prompts
-  2. Flag aliases added: `--drive-a` / `--drive-b` as alternatives to `--keep` / `--other`
-  3. `--single <path>` mode: find files that appear more than once on the same drive, then hand off to the existing guided deletion workflow (same safety guarantees, same undo log)
-  4. Interactive no-args mode offers a third option alongside two-drive compare: "Clean up a single drive"
-  5. Post-scan "next steps" block printed after every scan: exact commands to review, delete, and undo — using the actual report filename generated
-  6. NTFS-on-macOS limitation called out explicitly in health check output and README
+  2. `--single <path>` mode: find files that appear more than once on the same drive, then hand off to the existing guided deletion workflow (same safety guarantees, same undo log)
+  3. Interactive no-args mode offers a third option alongside two-drive compare: "Clean up a single drive"
+  4. Post-scan "next steps" block printed after every scan: exact commands to review, delete, and undo — using the actual report filename generated
+  5. NTFS-on-macOS limitation called out explicitly in health check output and README
+  6. `--keep` / `--other` flag names retained as-is — aliases (`--drive-a` / `--drive-b`) dropped; ambiguous names create deletion safety risk
 
 ### Phase 8: Standalone Distribution
 **Goal**: Non-developers can download and run diskcomp with zero setup. No Python required.
