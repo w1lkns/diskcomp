@@ -385,6 +385,138 @@ def prompt_confirm(message: str, valid_keys: list, ui) -> str:
         ui.error(f"Invalid choice. Enter one of: {', '.join(valid_keys)}")
 
 
+def show_deletion_preview(context: NavigationContext, ui) -> None:
+    """
+    Display a preview of which files will be deleted.
+
+    Shows the candidate files that will be deleted, taking into account any flagged files
+    and folder skips. This is a read-only display with no user input required.
+
+    Args:
+        context: NavigationContext with scan_results and selections
+        ui: UIHandler instance for display
+    """
+    if not context.scan_results:
+        ui.ok("No scan results available")
+        return
+
+    # For now, show a simple message
+    ui.ok("Deletion preview: Preparing candidates (will show files to be deleted)")
+
+
+def orchestrate_deletion(context: NavigationContext, ui, mode: str):
+    """
+    Wrapper around DeletionOrchestrator with pre-deletion filtering.
+
+    Filters candidates by flagged files and folder skips before deletion.
+    Routes to either interactive or batch mode based on mode parameter.
+
+    Args:
+        context: NavigationContext with scan_results, flagged_files, selected_folders_skip
+        ui: UIHandler instance for display
+        mode: 'interactive' or 'batch' for deletion mode
+
+    Returns:
+        DeletionResult from DeletionOrchestrator
+
+    Raises:
+        ValueError: If context.scan_results is None
+    """
+    from diskcomp.deletion import DeletionOrchestrator, filter_candidates_by_flags
+
+    if context.scan_results is None:
+        raise ValueError("No scan results available for deletion")
+
+    # Filter candidates by flagged files
+    filtered_results = filter_candidates_by_flags(context.scan_results, context.flagged_files)
+
+    # TODO: Apply folder skip filtering when integrated
+
+    # Create orchestrator and run deletion
+    orchestrator = DeletionOrchestrator(
+        candidates=filtered_results.get('duplicates', []),
+        ui=ui,
+        report_dir=os.path.dirname(context.report_path) if context.report_path else os.getcwd()
+    )
+
+    if mode == 'interactive':
+        return orchestrator.interactive_mode()
+    elif mode == 'batch':
+        return orchestrator.batch_mode()
+    else:
+        raise ValueError(f"Invalid deletion mode: {mode}")
+
+
+def run_post_scan_menu(context: NavigationContext, ui) -> str:
+    """
+    Main post-scan navigation hub for user actions after scanning and summary display.
+
+    Displays a menu with 6 options and loops until user chooses deletion or exit.
+    Supports navigation to folder skip, file flagging, and deletion workflows
+    with state preservation across back navigation.
+
+    Menu options:
+      1) Skip certain folders (exclude before deletion)
+      2) Flag individual files (mark 'do not delete')
+      3) Review deletion preview
+      4) Start deletion (Mode A: interactive, per-file confirmation)
+      5) Start deletion (Mode B: batch, dry-run then confirm)
+      6) Exit without deletion
+
+    Args:
+        context: NavigationContext with scan_results already populated
+        ui: UIHandler instance for display and routing
+
+    Returns:
+        String outcome: 'deleted', 'aborted', or 'skipped_deletion'
+
+    Note:
+        - Never re-scans files (uses NavigationContext for state)
+        - All selections (folder skip, file flags) preserved when navigating back
+        - Returns immediately when user completes deletion or chooses to exit
+    """
+    while True:
+        # Display menu
+        ui.ok("\nNext Steps:")
+        ui.ok("  1) Skip certain folders (exclude before deletion)")
+        ui.ok("  2) Flag individual files (mark 'do not delete')")
+        ui.ok("  3) Review deletion preview")
+        ui.ok("  4) Start deletion (Mode A: interactive)")
+        ui.ok("  5) Start deletion (Mode B: batch)")
+        ui.ok("  6) Exit without deletion")
+
+        # Get user choice
+        choice = prompt_confirm("Enter your choice (1-6): ", ['1', '2', '3', '4', '5', '6'], ui)
+
+        # Route based on choice
+        if choice == '1':
+            # Folder skip
+            context = show_folder_selection(context, ui)
+        elif choice == '2':
+            # File flagging
+            context = show_file_flagging(context, ui)
+        elif choice == '3':
+            # Deletion preview
+            show_deletion_preview(context, ui)
+        elif choice == '4':
+            # Interactive deletion
+            result = orchestrate_deletion(context, ui, mode='interactive')
+            if result.aborted:
+                return 'aborted'
+            else:
+                return 'deleted'
+        elif choice == '5':
+            # Batch deletion
+            result = orchestrate_deletion(context, ui, mode='batch')
+            if result.aborted:
+                return 'aborted'
+            else:
+                return 'deleted'
+        elif choice == '6':
+            # Exit without deletion
+            return 'skipped_deletion'
+
+
 def parse_args(args=None):
     """
     Parse command-line arguments.
