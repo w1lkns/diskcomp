@@ -576,6 +576,9 @@ def main(args=None):
         and not args.single
     )
 
+    # Track menu selection for routing in interactive mode
+    interactive_selection = None
+
     if is_interactive_mode:
         show_startup_banner()
 
@@ -592,10 +595,11 @@ def main(args=None):
                 continue
             elif selection == 'two_drives':
                 # Proceed with two-drive flow
+                interactive_selection = 'two_drives'
                 break
             elif selection == 'single_drive':
-                # Proceed with single-drive flow (Plan 06 handles this)
-                # For now, just break out of menu
+                # Proceed with single-drive flow
+                interactive_selection = 'single_drive'
                 break
 
 
@@ -691,18 +695,40 @@ def main(args=None):
             print(f"Error during deletion: {e}", file=sys.stderr)
             return 1
 
-    # Handle --single flag (single-drive mode)
-    if args.single:
+    # Handle --single flag OR interactive single-drive selection
+    if args.single or interactive_selection == 'single_drive':
         # Single-drive mode: scan one path, find internal duplicates
-        single_path = os.path.abspath(args.single)
+
+        # Determine path: from --single flag or interactive picker
+        if args.single:
+            single_path = os.path.abspath(args.single)
+        else:
+            # Interactive mode: launch drive picker to select single drive
+            ui = UIHandler.create()
+            ui.section("Select Drive to Clean Up")
+            ui.blank()
+
+            selected = interactive_drive_picker()
+            if selected is None:
+                ui.error("Could not complete drive selection.")
+                ui.close()
+                return 1
+
+            # Use the 'keep' path from picker for single-drive mode
+            single_path = selected['keep']
+            ui.ok(f"Cleaning up: {single_path}")
 
         # Validate path
         if not os.path.isdir(single_path):
             print(f"Error: --single path is not a directory: {single_path}", file=sys.stderr)
+            if 'ui' not in locals():
+                ui = UIHandler.create()
+            ui.close()
             return 1
 
-        # Create UI
-        ui = UIHandler.create()
+        # Create UI if not already created
+        if 'ui' not in locals():
+            ui = UIHandler.create()
 
         try:
             # Scan single drive
