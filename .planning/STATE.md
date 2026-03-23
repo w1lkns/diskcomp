@@ -2,13 +2,13 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: Ready to plan
-last_updated: "2026-03-23T13:35:05.241Z"
+status: Executing Phase 07.1
+last_updated: "2026-03-23T23:45:00.000Z"
 progress:
-  total_phases: 9
+  total_phases: 10
   completed_phases: 7
-  total_plans: 26
-  completed_plans: 27
+  total_plans: 31
+  completed_plans: 28
 ---
 
 # diskcomp — Project State
@@ -18,7 +18,7 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-22)
 
 **Core value:** The user must always feel in control — no file is ever deleted without explicit confirmation, and every action is reversible via an undo log.
-**Current focus:** Phase 07 — ux-polish-single-drive-mode
+**Current focus:** Phase 07.1 — ux-flow-improvements
 
 ## Current Status
 
@@ -50,6 +50,7 @@ See: .planning/PROJECT.md (updated 2026-03-22)
 - 2026-03-23 11:55: Plan 07-03 (ASCII Startup Banner) complete. Added show_startup_banner() function displaying ASCII art "diskcomp" logo, exact tagline "Find duplicates. Free space. Stay safe.", and version from importlib.metadata with "1.1.0" fallback (D-04, D-05, D-06). Interactive mode detection added to main() - banner shown only when no args present (--keep, --other, --delete-from, --undo all absent). 6 comprehensive tests added to TestStartupBanner class verifying banner output, exact tagline, mode detection, and flag suppression. All 21 CLI tests passing. Ready for Phase 7 Plan 02 (--min-size flag).
 - 2026-03-23 12:25: Plan 07-04 (First-Run Wizard Menu) complete. Implemented show_first_run_menu() function with 4 options (1=two drives, 2=single drive, 3=help, 4=quit) and show_help_guide() with plain-English explanation of diskcomp, both modes, and 3 safety facts (D-07 through D-11). Menu displayed after startup banner in interactive mode, loops on invalid input. Menu routing: quit exits cleanly, help shows guide + loops, two_drives/single_drive break to respective flows. Added 10 comprehensive tests (7 for menu + 3 for help), updated 3 TestInteractiveMode tests with menu mocks. All 39 CLI tests passing (29 existing + 10 new). First-run experience now friendly and menu-driven. Ready for Phase 7 Plan 05 (Single-Drive Dedup).
 - 2026-03-23 13:40: Phase 7 COMPLETE. Plans 05, 06, 07, 08, 09 executed successfully. Complete main() orchestration integrates all Phase 7 features: startup banner → first-run menu → two-drive or single-drive scan → summary/next-steps → action menu → (optional) deletion. Both modes share identical post-scan UX. All 250+ tests passing with zero regressions. Interactive mode fully functional with graceful cancellation at multiple points. Single-drive mode integrated alongside two-drive mode with shared workflows. Action menu conditionally displayed (only if duplicates found). Full deletion workflow integrated for both modes. 07-09-SUMMARY.md created documenting complete integration. Phase 7 (UX Polish) now ready for release or Phase 8 work.
+- 2026-03-23 23:45: Plan 07.1-01 (Input Validation & State Preservation) complete. NavigationContext @dataclass added to types.py (6 fields: scan_results, keep_path, other_path, selected_folders_skip, flagged_files, report_path) to preserve state across back/forward navigation. prompt_confirm() helper added to cli.py to validate user input against whitelist (loops on empty/invalid input). 9 unit tests added (4 for prompt_confirm, 5 for NavigationContext). All 245 tests passing with no regressions. Infrastructure established for Wave 2 tasks (folder skip, file flagging, back navigation). Ready for 07.1-02 (Folder Skip after Hashing).
 
 ## Performance Metrics
 
@@ -71,6 +72,7 @@ See: .planning/PROJECT.md (updated 2026-03-22)
 | 07 | 01 | 2 | ~6m | 0 created, 4 modified | 1 (fix, test updates, summary) |
 | 07 | 03 | 1 | ~4m | 0 created, 2 modified | 1 (banner feature, test suite, summary) |
 | 07 | 04 | 1 | ~30m | 0 created, 2 modified | 2 (menu implementation + tests, summary) |
+| 07.1 | 01 | 3 | ~15m | 0 created, 3 modified | 4 (NavigationContext, prompt_confirm, tests, summary) |
 
 ## Decisions Made
 
@@ -188,6 +190,19 @@ See: .planning/PROJECT.md (updated 2026-03-22)
 - Interactive mode detection logic: Check all flag attributes (keep, other, delete_from, undo) after parse_args() execution
 - ASCII art: Pre-rendered diskcomp logo in fixed-width font, centered, 8 lines total with blank separator line after
 
+### Phase 7.1 Plan 01 (Input Validation & State Preservation)
+
+- NavigationContext uses `Optional[Dict]` for scan_results field, preserving the dict structure from DuplicateClassifier.classify()
+- prompt_confirm() treats empty input and invalid keys identically — both trigger ui.error() and re-prompt (no silent failures)
+- NavigationContext uses `field(default_factory=set)` for selected_folders_skip and flagged_files to ensure independent instances (no shared mutable defaults)
+- prompt_confirm() and NavigationContext are foundational infrastructure only — NOT integrated into existing menus yet (Wave 2 tasks will integrate)
+
+## Accumulated Context
+
+### Roadmap Evolution
+
+- Phase 07.1 inserted after Phase 7: UX Flow Improvements (INSERTED) — folder skip after hashing, constrained input prompts, back navigation from batch to 1-by-1 mode
+
 ## Next Action
 
-Phase 7 Plan 01 COMPLETE! 37 tests passing (8 skipped - Rich unavailable). Summary table display bug fixed: unique file sizes now correctly tally using byte-level accumulation; label parameters enable dynamic drive name display. Infrastructure ready for Phase 7 Plan 02 (--min-size flag implementation).
+Phase 7.1 Plan 01 COMPLETE! 245 tests passing with no regressions. NavigationContext @dataclass added for state preservation across navigation (6 fields). prompt_confirm() helper added for constrained input validation (loops on empty/invalid). Infrastructure established for Wave 2 tasks (folder skip, file flagging). Ready for 07.1-02 (Folder Skip after Hashing).
