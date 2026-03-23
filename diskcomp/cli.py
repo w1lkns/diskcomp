@@ -284,6 +284,36 @@ def _show_undo_log(log_file_path: str) -> int:
         return 1
 
 
+def show_startup_banner():
+    """
+    Display startup banner with logo, tagline, and version (D-04, D-05, D-06).
+
+    Shown only in interactive (no-args) mode, not when flags are passed.
+    Tagline: "Find duplicates. Free space. Stay safe."
+    Version: read from importlib.metadata with fallback to "1.1.0"
+    """
+    try:
+        from importlib.metadata import version
+        ver = version('diskcomp')
+    except Exception:
+        ver = '1.1.0'  # Fallback for single-file builds or uninstalled
+
+    banner = f"""
+ ██████╗ ██╗███████╗██╗  ██╗ ██████╗ ██████╗ ███╗   ███╗██████╗
+ ██╔══██╗██║██╔════╝██║ ██╔╝██╔════╝██╔═══██╗████╗ ████║██╔══██╗
+ ██║  ██║██║███████╗█████╔╝ ██║     ██║   ██║██╔████╔██║██████╔╝
+ ██║  ██║██║╚════██║██╔═██╗ ██║     ██║   ██║██║╚██╔╝██║██╔═══╝
+ ██████╔╝██║███████║██║  ██╗╚██████╗╚██████╔╝██║ ╚═╝ ██║██║
+ ╚═════╝ ╚═╝╚══════╝╚═╝  ╚═╝ ╚═════╝ ╚═════╝ ╚═╝     ╚═╝╚═╝
+
+ Find duplicates. Free space. Stay safe.
+ v{ver}
+    """.strip()
+
+    print(banner)
+    print()
+
+
 def main(args=None):
     """
     Main orchestration function.
@@ -299,6 +329,18 @@ def main(args=None):
     # Parse arguments
     if args is None:
         args = parse_args()
+
+    # Detect interactive (no-args) mode: no --keep, --other, --delete-from, --undo
+    is_interactive_mode = (
+        not args.keep
+        and not args.other
+        and not args.delete_from
+        and not args.undo
+    )
+
+    if is_interactive_mode:
+        show_startup_banner()
+
 
     # Handle --undo flag (audit view only, no restoration)
     if args.undo:

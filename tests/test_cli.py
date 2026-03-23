@@ -4,7 +4,7 @@ import unittest
 from unittest.mock import patch, MagicMock, call
 from io import StringIO
 
-from diskcomp.cli import parse_args, main, display_health_checks, _display_health_result
+from diskcomp.cli import parse_args, main, display_health_checks, _display_health_result, parse_size_value
 from diskcomp.types import HealthCheckResult
 
 
@@ -42,6 +42,21 @@ class TestCLIArgumentParsing(unittest.TestCase):
         """Test parse_args with --limit flag."""
         args = parse_args(['--keep', '/mnt/a', '--other', '/mnt/b', '--limit', '100'])
         self.assertEqual(args.limit, 100)
+
+    def test_parse_args_min_size(self):
+        """Test parse_args with --min-size flag."""
+        args = parse_args(['--keep', '/mnt/a', '--other', '/mnt/b', '--min-size', '10MB'])
+        self.assertEqual(args.min_size, '10MB')
+
+    def test_parse_args_min_size_bytes(self):
+        """Test parse_args with --min-size as plain bytes."""
+        args = parse_args(['--keep', '/mnt/a', '--other', '/mnt/b', '--min-size', '1024'])
+        self.assertEqual(args.min_size, '1024')
+
+    def test_parse_args_min_size_default(self):
+        """Test parse_args defaults min_size to None."""
+        args = parse_args(['--keep', '/mnt/a', '--other', '/mnt/b'])
+        self.assertIsNone(args.min_size)
 
 
 class TestInteractiveMode(unittest.TestCase):
@@ -315,6 +330,51 @@ class TestHealthCheckDisplay(unittest.TestCase):
 
         # Should pass because keep is writable and other read-only is OK
         self.assertTrue(result)
+
+
+
+class TestParseSize(unittest.TestCase):
+    """Test suite for parse_size_value helper function."""
+
+    def test_parse_size_value_bytes(self):
+        """Test parse_size_value with plain bytes."""
+        self.assertEqual(parse_size_value("1024"), 1024)
+        self.assertEqual(parse_size_value("0"), 0)
+
+    def test_parse_size_value_kb(self):
+        """Test parse_size_value with KB suffix."""
+        self.assertEqual(parse_size_value("500KB"), 512000)
+        self.assertEqual(parse_size_value("1KB"), 1024)
+
+    def test_parse_size_value_mb(self):
+        """Test parse_size_value with MB suffix."""
+        self.assertEqual(parse_size_value("10MB"), 10485760)
+        self.assertEqual(parse_size_value("1MB"), 1048576)
+
+    def test_parse_size_value_gb(self):
+        """Test parse_size_value with GB suffix."""
+        self.assertEqual(parse_size_value("1.5GB"), 1610612736)
+        self.assertEqual(parse_size_value("1GB"), 1073741824)
+
+    def test_parse_size_value_case_insensitive(self):
+        """Test parse_size_value with case-insensitive suffixes."""
+        self.assertEqual(parse_size_value("10mb"), 10485760)
+        self.assertEqual(parse_size_value("500kb"), 512000)
+        self.assertEqual(parse_size_value("1gb"), 1073741824)
+
+    def test_parse_size_value_with_spaces(self):
+        """Test parse_size_value with leading/trailing spaces."""
+        self.assertEqual(parse_size_value("  1024  "), 1024)
+        self.assertEqual(parse_size_value("  10MB  "), 10485760)
+
+    def test_parse_size_value_invalid(self):
+        """Test parse_size_value raises ValueError on invalid input."""
+        with self.assertRaises(ValueError):
+            parse_size_value("xyz")
+        with self.assertRaises(ValueError):
+            parse_size_value("10XB")
+        with self.assertRaises(ValueError):
+            parse_size_value("")
 
 
 if __name__ == '__main__':
