@@ -200,7 +200,7 @@ class TestANSIProgressUI(unittest.TestCase):
         self.assertIn(ARROW, output)
 
     def test_on_folder_done(self):
-        """Test on_folder_done prints with green tick."""
+        """Test on_folder_done prints folder path and file count."""
         ui = ANSIProgressUI()
         f = io.StringIO()
         with redirect_stdout(f):
@@ -208,8 +208,7 @@ class TestANSIProgressUI(unittest.TestCase):
         output = f.getvalue()
         self.assertIn("42", output)
         self.assertIn("/test/path/folder", output)
-        # Should contain tick symbol
-        self.assertIn(TICK, output)
+        self.assertIn(ARROW, output)
 
     def test_start_hash(self):
         """Test start_hash prints with cyan arrow."""

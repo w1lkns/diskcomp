@@ -275,12 +275,8 @@ class ANSIProgressUI:
         Args:
             drive_path: Path to the drive being scanned
         """
-        import sys as _sys
         self._scan_total_files = 0
-        if _sys.stdout.isatty():
-            print(f"\r  {colored(ARROW, CYAN)} Scanning {drive_path}...".ljust(78), end='', flush=True)
-        else:
-            print(f"{colored(ARROW, CYAN)} Scanning {drive_path}...")
+        print(f"\r  {colored(ARROW, CYAN)} Scanning {drive_path}...".ljust(78), end='', flush=True)
 
     def on_folder_done(self, folder_path: str, file_count: int):
         """
@@ -290,15 +286,10 @@ class ANSIProgressUI:
             folder_path: Path to the completed folder
             file_count: Number of files found in this folder
         """
-        import sys as _sys
         self._scan_total_files = getattr(self, '_scan_total_files', 0) + file_count
-        if _sys.stdout.isatty():
-            # Truncate long folder paths to keep line within terminal width
-            short_path = folder_path if len(folder_path) <= 50 else "…" + folder_path[-49:]
-            line = f"  {colored(ARROW, CYAN)} Scanning... {self._scan_total_files:,} files | {short_path}"
-            print(f"\r{line.ljust(78)}", end='', flush=True)
-        else:
-            print(f"{colored(TICK, GREEN)} {file_count} files from {folder_path}")
+        short_path = folder_path if len(folder_path) <= 50 else "…" + folder_path[-49:]
+        line = f"  {colored(ARROW, CYAN)} Scanning... {self._scan_total_files:,} files | {short_path}"
+        print(f"\r{line.ljust(78)}", end='', flush=True)
 
     def start_hash(self, total_files: int):
         """
@@ -307,9 +298,7 @@ class ANSIProgressUI:
         Args:
             total_files: Total number of files to hash (actually candidates from size filter)
         """
-        import sys as _sys
-        if _sys.stdout.isatty():
-            print()  # end the in-place scan line
+        print()  # end the in-place scan line
         print(f"{colored(ARROW, CYAN)} Hashing {total_files} candidates...")
 
     def on_file_hashed(self, current: int, total: int, speed_mbps: float, eta_secs: Optional[int] = None):
@@ -322,7 +311,6 @@ class ANSIProgressUI:
             speed_mbps: Current hashing speed in MB/s
             eta_secs: Estimated seconds remaining
         """
-        import sys as _sys
         bar = progress_bar(current, total)
         speed_str = format_speed(speed_mbps * 1048576)  # Convert MB/s to bytes/s
 
@@ -331,12 +319,9 @@ class ANSIProgressUI:
         if eta_secs is not None and eta_secs > 0:
             output += f"  ETA {format_eta(eta_secs)}"
 
-        if _sys.stdout.isatty():
-            print(f"\r  {output.ljust(76)}", end='', flush=True)
-            if current >= total:
-                print()  # end the progress line
-        else:
-            print(output)
+        print(f"\r  {output.ljust(76)}", end='', flush=True)
+        if current >= total:
+            print()  # end the progress line
 
     def show_summary(self, duplicates_mb: float, duplicates_count: int,
                      unique_keep_mb: float, unique_keep_count: int,
