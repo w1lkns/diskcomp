@@ -350,18 +350,25 @@ class DeletionOrchestrator:
             print(f"--------------------------------------------------------------------", file=sys.stderr)
 
             # Phase 2: Confirmation
-            confirm = input("\nType DELETE to proceed, or Ctrl+C to abort: ").strip()
-            if confirm != "DELETE":
-                print("Deletion cancelled (confirmation string did not match).", file=sys.stderr)
-                return DeletionResult(
-                    mode='batch',
-                    files_deleted=0,
-                    space_freed_mb=0.0,
-                    files_skipped=len(self.candidates),
-                    aborted=False,
-                    undo_log_path=None,
-                    errors=[]
-                )
+            while True:
+                confirm = input("\nType 'DELETE' to proceed, 'b' to go back, or Ctrl+C to abort: ").strip()
+
+                if confirm == "DELETE":
+                    # Proceed with deletion
+                    break
+                elif confirm == "b":
+                    # User wants to go back to menu
+                    return DeletionResult(
+                        mode='batch',
+                        files_deleted=0,
+                        space_freed_mb=0.0,
+                        files_skipped=len(self.candidates),
+                        aborted=True,
+                        undo_log_path=None,
+                        errors=[]
+                    )
+                else:
+                    print("Invalid input. Type 'DELETE' to proceed or 'b' to go back.", file=sys.stderr)
 
             # Phase 3: Execute deletions
             files_deleted = 0
