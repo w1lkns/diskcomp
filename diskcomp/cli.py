@@ -788,7 +788,8 @@ def main(args=None):
                 unique_keep_count=0,
                 unique_other_mb=summary['unique_in_other_size_mb'],
                 unique_other_count=summary['unique_in_other_count'],
-                report_path=writer.output_path
+                report_path=writer.output_path,
+                mode='single_drive'
             )
 
             # Plain-language summary and next steps

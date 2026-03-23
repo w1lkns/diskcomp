@@ -152,7 +152,8 @@ class RichProgressUI:
     def show_summary(self, duplicates_mb: float, duplicates_count: int,
                      unique_keep_mb: float, unique_keep_count: int,
                      unique_other_mb: float, unique_other_count: int,
-                     report_path: str, keep_label: str = "Keep", other_label: str = "Other"):
+                     report_path: str, keep_label: str = "Keep", other_label: str = "Other",
+                     mode: str = 'two_drives'):
         """
         Display summary statistics in a formatted table.
 
@@ -166,6 +167,7 @@ class RichProgressUI:
             report_path: Path to the generated report file
             keep_label: Label for keep drive (default: "Keep")
             other_label: Label for other drive (default: "Other")
+            mode: 'two_drives' or 'single_drive'
         """
         if not self.console:
             self.console = Console()
@@ -175,9 +177,12 @@ class RichProgressUI:
         table.add_column("Count", style="magenta")
         table.add_column("Size (MB)", style="green")
 
-        table.add_row("Duplicates", str(duplicates_count), f"{duplicates_mb:.2f}")
-        table.add_row(f"Unique in {keep_label}", str(unique_keep_count), f"{unique_keep_mb:.2f}")
-        table.add_row(f"Unique in {other_label}", str(unique_other_count), f"{unique_other_mb:.2f}")
+        table.add_row("Duplicate files", str(duplicates_count), f"{duplicates_mb:.2f}")
+        if mode == 'two_drives':
+            table.add_row(f"Unique in {keep_label}", str(unique_keep_count), f"{unique_keep_mb:.2f}")
+            table.add_row(f"Unique in {other_label}", str(unique_other_count), f"{unique_other_mb:.2f}")
+        else:
+            table.add_row("Unique files", str(unique_other_count), f"{unique_other_mb:.2f}")
 
         self.console.print(table)
         self.console.print(f"\n[bold]Report saved to:[/bold] {report_path}")
@@ -331,7 +336,8 @@ class ANSIProgressUI:
     def show_summary(self, duplicates_mb: float, duplicates_count: int,
                      unique_keep_mb: float, unique_keep_count: int,
                      unique_other_mb: float, unique_other_count: int,
-                     report_path: str, keep_label: str = "Keep", other_label: str = "Other"):
+                     report_path: str, keep_label: str = "Keep", other_label: str = "Other",
+                     mode: str = 'two_drives'):
         """
         Display summary statistics using ANSI box-drawing characters.
 
@@ -345,6 +351,7 @@ class ANSIProgressUI:
             report_path: Path to the generated report file
             keep_label: Label for keep drive (default: "Keep")
             other_label: Label for other drive (default: "Other")
+            mode: 'two_drives' or 'single_drive'
         """
         # Box drawing characters
         top_left = "╔"
@@ -365,11 +372,12 @@ class ANSIProgressUI:
         title_line = f"{vertical}{' ' * title_padding}{title}{' ' * (inner_width - title_padding - len(title))}{vertical}"
 
         # Data rows
-        rows = [
-            ("Duplicates", str(duplicates_count), f"{duplicates_mb:.2f}"),
-            (f"Unique in {keep_label}", str(unique_keep_count), f"{unique_keep_mb:.2f}"),
-            (f"Unique in {other_label}", str(unique_other_count), f"{unique_other_mb:.2f}"),
-        ]
+        rows = [("Duplicate files", str(duplicates_count), f"{duplicates_mb:.2f}")]
+        if mode == 'two_drives':
+            rows.append((f"Unique in {keep_label}", str(unique_keep_count), f"{unique_keep_mb:.2f}"))
+            rows.append((f"Unique in {other_label}", str(unique_other_count), f"{unique_other_mb:.2f}"))
+        else:
+            rows.append(("Unique files", str(unique_other_count), f"{unique_other_mb:.2f}"))
 
         # Build box
         lines = []

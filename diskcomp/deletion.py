@@ -191,16 +191,21 @@ class DeletionOrchestrator:
 
                 keep_path = candidate.get('original_file') or candidate.get('keep_path')
 
-                # Prompt user (per D-04: show both paths, size, hash verification)
-                print(f"\n[{i+1}/{len(self.candidates)}] File to delete:", file=sys.stderr)
-                print(f"  Delete: {other_path}", file=sys.stderr)
+                # Prompt user — show both copies numbered so user can pick which to delete
+                print(f"\n[{i+1}/{len(self.candidates)}] Duplicate files:", file=sys.stderr)
                 if keep_path:
-                    print(f"  Keep:   {keep_path}", file=sys.stderr)
-                print(f"  Size: {size_mb} MB", file=sys.stderr)
-                print(f"  Hash: {file_hash[:16]}... (verified match)", file=sys.stderr)
+                    print(f"  (1) {other_path}", file=sys.stderr)
+                    print(f"  (2) {keep_path}", file=sys.stderr)
+                else:
+                    print(f"  (1) {other_path}", file=sys.stderr)
+                print(f"  Size: {size_mb} MB  |  Hash: {file_hash[:16]}... (verified match)", file=sys.stderr)
                 print(f"  Space freed so far: {space_freed_mb:.2f} MB", file=sys.stderr)
 
-                choice = input("(y)es, (n)o, (skip), (abort)? ").strip().lower()
+                if keep_path:
+                    prompt = "Delete (1), (2), (s)kip, (a)bort? "
+                else:
+                    prompt = "Delete (1), (s)kip, (a)bort? "
+                choice = input(prompt).strip().lower()
 
                 if choice in ['abort', 'a']:
                     # Abort entire workflow
@@ -216,33 +221,49 @@ class DeletionOrchestrator:
                     )
 
                 elif choice in ['skip', 's']:
-                    # Skip this file, come back later
                     skipped.append(candidate)
                     continue
 
-                elif choice in ['y', 'yes']:
-                    # Delete file
+                elif choice in ['1', 'y', 'yes']:
+                    # Delete the first listed copy (other_path)
+                    path_to_delete = other_path
                     try:
-                        # Log entry BEFORE deletion (per D-12)
-                        self.undo_log.add(other_path, size_mb, file_hash)
-                        os.remove(other_path)
+                        self.undo_log.add(path_to_delete, size_mb, file_hash)
+                        os.remove(path_to_delete)
                         files_deleted += 1
                         space_freed_mb += size_mb
-                        # Update UI with running total (D-05)
-                        print(f"  ✓ Deleted. Space freed so far: {space_freed_mb:.2f} MB", file=sys.stderr)
+                        print(f"  Deleted (1). Space freed so far: {space_freed_mb:.2f} MB", file=sys.stderr)
                     except FileNotFoundError:
-                        errors.append(f"File not found (may have been deleted): {other_path}")
+                        errors.append(f"File not found (may have been deleted): {path_to_delete}")
                         skipped.append(candidate)
                     except PermissionError:
-                        errors.append(f"Permission denied: {other_path}")
+                        errors.append(f"Permission denied: {path_to_delete}")
                         skipped.append(candidate)
                     except OSError as e:
-                        errors.append(f"Error deleting {other_path}: {e}")
+                        errors.append(f"Error deleting {path_to_delete}: {e}")
                         skipped.append(candidate)
-                    # Continue to next file even on error
+
+                elif choice == '2' and keep_path:
+                    # Delete the second listed copy (keep_path)
+                    path_to_delete = keep_path
+                    try:
+                        self.undo_log.add(path_to_delete, size_mb, file_hash)
+                        os.remove(path_to_delete)
+                        files_deleted += 1
+                        space_freed_mb += size_mb
+                        print(f"  Deleted (2). Space freed so far: {space_freed_mb:.2f} MB", file=sys.stderr)
+                    except FileNotFoundError:
+                        errors.append(f"File not found (may have been deleted): {path_to_delete}")
+                        skipped.append(candidate)
+                    except PermissionError:
+                        errors.append(f"Permission denied: {path_to_delete}")
+                        skipped.append(candidate)
+                    except OSError as e:
+                        errors.append(f"Error deleting {path_to_delete}: {e}")
+                        skipped.append(candidate)
 
                 else:
-                    # choice in ['n', 'no'] or invalid input
+                    # 'n', 'no', or unrecognised input — skip
                     skipped.append(candidate)
                     continue
 
