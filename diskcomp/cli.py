@@ -67,6 +67,91 @@ def parse_size_value(value_str: str) -> int:
     raise ValueError(f"Invalid size format: {value_str}. Use format: 1024, 500KB, 10MB, 1.5GB")
 
 
+def parse_selection_input(input_str: str, max_index: int) -> list:
+    """
+    Parse comma/space-separated indices and range notation into a sorted list of integers.
+
+    Accepts multiple input formats for user convenience:
+    - Comma-separated: "1,3,5" → [1, 3, 5]
+    - Space-separated: "1 2 3" → [1, 2, 3]
+    - Range notation: "1-3" → [1, 2, 3]
+    - Mixed: "1,3-5" → [1, 3, 4, 5]
+
+    All indices are validated to be in the range [1, max_index]. Returns a sorted list
+    of unique integers.
+
+    Args:
+        input_str: User input string with indices and/or ranges
+        max_index: Maximum valid index (inclusive, 1-based)
+
+    Returns:
+        Sorted list of unique integers
+
+    Raises:
+        ValueError: If input is empty, contains invalid indices, or malformed ranges
+
+    Examples:
+        parse_selection_input("1,3,5", max_index=10) → [1, 3, 5]
+        parse_selection_input("1-3", max_index=10) → [1, 2, 3]
+        parse_selection_input("1,3-5,10", max_index=10) → [1, 3, 4, 5, 10]
+        parse_selection_input("", max_index=5) → ValueError: No valid selections made
+        parse_selection_input("1,7", max_index=5) → ValueError: Index 7 out of range (1-5)
+    """
+    input_str = input_str.strip()
+    if not input_str:
+        raise ValueError("No valid selections made")
+
+    result_set = set()
+
+    # Split by both comma and space, handle mixed separators
+    # First normalize: replace commas with spaces, then split on whitespace
+    normalized = input_str.replace(',', ' ')
+    tokens = normalized.split()
+
+    for token in tokens:
+        token = token.strip()
+        if not token:
+            continue
+
+        # Check if this token is a range (contains '-')
+        if '-' in token:
+            parts = token.split('-')
+            if len(parts) != 2:
+                raise ValueError(f"Invalid range format: {token}")
+
+            try:
+                start = int(parts[0].strip())
+                end = int(parts[1].strip())
+            except ValueError:
+                raise ValueError(f"Invalid range format: {token}")
+
+            # Validate range bounds
+            if start < 1 or start > max_index:
+                raise ValueError(f"Index {start} out of range (1-{max_index})")
+            if end < 1 or end > max_index:
+                raise ValueError(f"Index {end} out of range (1-{max_index})")
+
+            # Add all integers in the range (inclusive)
+            for i in range(start, end + 1):
+                result_set.add(i)
+        else:
+            # Single index
+            try:
+                index = int(token)
+            except ValueError:
+                raise ValueError(f"Invalid index: {token}")
+
+            if index < 1 or index > max_index:
+                raise ValueError(f"Index {index} out of range (1-{max_index})")
+
+            result_set.add(index)
+
+    if not result_set:
+        raise ValueError("No valid selections made")
+
+    return sorted(list(result_set))
+
+
 def prompt_confirm(message: str, valid_keys: list, ui) -> str:
     """
     Validate user input against a whitelist of valid keys.
