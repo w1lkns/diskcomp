@@ -48,26 +48,30 @@ def _should_include_mount(mountpoint: str, fstype: str, device: str) -> bool:
     Returns:
         True if the mount should be shown to users, False if it should be filtered out
     """
-    # Special cases: include root and common user mount points FIRST
-    # This takes priority over filesystem type filtering
+    # Include external drives and user-accessible volumes FIRST
     user_friendly_mounts = [
-        '/',                    # Root filesystem - where user data lives
         '/home',               # Home directory (if separate partition)
     ]
     
     if mountpoint in user_friendly_mounts:
         return True
     
-    # Include anything under /media or /mnt (external drives)
-    external_mount_patterns = ['/media/', '/mnt/']
+    # Include anything under /media, /mnt, or /Volumes (external drives)
+    external_mount_patterns = ['/media/', '/mnt/', '/Volumes/']
     
     for pattern in external_mount_patterns:
         if mountpoint.startswith(pattern):
             return True
     
-    # On macOS, also include /Volumes (external drives)
-    if mountpoint.startswith('/Volumes/'):
-        return True
+    # EXCLUDE macOS system volumes - these are confusing for users
+    macos_system_patterns = [
+        '/System/Volumes/',     # /System/Volumes/VM, /System/Volumes/Preboot, etc.
+        '/',                    # Root filesystem (Macintosh HD) - usually read-only
+    ]
+    
+    for pattern in macos_system_patterns:
+        if mountpoint == pattern or mountpoint.startswith(pattern):
+            return False
     
     # AFTER checking user-friendly mounts, exclude virtual/temporary filesystems
     virtual_fstypes = {
@@ -180,6 +184,10 @@ def _get_drives_macos() -> List[DriveInfo]:
                                 mountpoint = partition['MountPoint']
                                 device = partition.get('DeviceIdentifier', 'unknown')
                                 fstype = partition.get('Content', 'UNKNOWN')
+
+                                # Apply filtering to hide system mounts
+                                if not _should_include_mount(mountpoint, fstype, device):
+                                    continue
 
                                 try:
                                     health = check_drive_health(mountpoint)

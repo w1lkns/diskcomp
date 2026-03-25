@@ -186,16 +186,24 @@ def show_folder_selection(context: NavigationContext, ui) -> NavigationContext:
         # context.selected_folders_skip now contains ['/path/to/Photos', '/path/to/Videos']
     """
     # Extract unique parent folders from scan results
-    if not context.scan_results or 'files_by_hash' not in context.scan_results:
+    if not context.scan_results:
         ui.ok("No scan results available")
         return context
 
-    # Flatten all files from the classification dict
-    all_files = []
-    for files_list in context.scan_results.get('files_by_hash', {}).values():
-        all_files.extend(files_list)
+    # Get all file paths from the classification results
+    file_paths = extract_duplicate_files(context.scan_results)
+    
+    if not file_paths:
+        ui.ok("No files found in scan results")
+        return context
 
-    folders = get_unique_parent_folders(all_files)
+    # Convert file paths to FileRecord objects for get_unique_parent_folders
+    # We only need path and parent directory, so create minimal FileRecord objects
+    file_records = []
+    for path in file_paths:
+        file_records.append(FileRecord(path=path, rel_path=os.path.basename(path), size_bytes=0))
+
+    folders = get_unique_parent_folders(file_records)
 
     # If no folders found, return early
     if not folders:
@@ -609,6 +617,13 @@ Examples:
         type=str,
         default=None,
         help='View audit log of deleted files (permanent; restore not possible)'
+    )
+
+    parser.add_argument(
+        '--version',
+        action='version',
+        version='%(prog)s 1.0.2',
+        help='Show version number and exit'
     )
 
     return parser.parse_args(args)
