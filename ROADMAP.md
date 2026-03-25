@@ -2,7 +2,7 @@
 
 diskcomp is actively developed with a focus on user feedback and real-world usage patterns. Here's what's planned:
 
-## 🎯 Current Status: v1.0.1 (March 2026)
+## 🎯 Current Status: v1.0.2 (March 2026)
 
 ✅ **Core functionality complete**: Safe duplicate detection and deletion  
 ✅ **Cross-platform support**: macOS, Linux, Windows  
@@ -10,22 +10,32 @@ diskcomp is actively developed with a focus on user feedback and real-world usag
 ✅ **Safety features**: Undo logs, dry-run, read-only detection  
 ✅ **Performance optimized**: Two-pass scanning (5× faster on typical drives)  
 ✅ **Professional distribution**: PyPI package, automated CI/CD  
+✅ **User experience fixes**: Clean drive picker interface (v1.0.1) — *Linux only, macOS still broken*  
+✅ **Deletion workflow fixes**: Interactive mode parameter bug (v1.0.2)  
 
 ---
 
 ## 🚀 Next Up: Solidify Foundation (v1.1-1.2)
 
-### Immediate Fixes
-- [ ] **Add `--version` flag** (missing basic CLI feature)
+### Critical UX Fixes
+- [ ] **Fix drive picker for macOS single-drive mode** — *Still showing 8+ system volumes (/, /System/Volumes/VM, etc.) instead of user-friendly drives*
+- [ ] **Add `--version` flag** (missing basic CLI feature) — *Issue #2*
 - [ ] **Fix Linux binary builds** (CI permissions issue)
-- [ ] **Windows compatibility testing** (ensure all features work)
-- [ ] **Large dataset performance testing** (>100K files)
 
-### User Experience Polish  
+### User Experience Polish
+- [ ] **Progress indicators for long operations** (drive detection, large scans, deep directory traversal)
+- [ ] **Loading states with context** ("Scanning drives...", "Analyzing 50,000 files...", "Hashing candidates...")
+- [ ] **Better cancellation feedback** (show what's stopping when user hits Ctrl+C)
+- [ ] **Homebrew formula** (`brew install diskcomp`) — *Planned but not implemented*
 - [ ] **GUI version** (PyQt/tkinter for less technical users)
 - [ ] **Better error messages** (actionable guidance when things fail)
 - [ ] **Progress persistence** (resume interrupted scans)
 - [ ] **Config files** (save preferences between runs)
+
+### Technical Improvements
+- [ ] **Windows compatibility testing** (ensure all features work)
+- [ ] **Large dataset performance testing** (>100K files)
+- [ ] **Drive detection reliability** (handle USB disconnects, network timeouts)
 
 *Target: 2-3 months • Based on user feedback and reported issues*
 
@@ -103,7 +113,7 @@ diskcomp is actively developed with a focus on user feedback and real-world usag
 - **Minor releases** (1.x.0): New features, performance improvements → 2-3 months  
 - **Major releases** (x.0.0): Breaking changes, architectural improvements → 6+ months
 
-**Current focus: v1.1** with GUI support and better distribution options.
+**Current focus: v1.1** with macOS drive picker fix, Homebrew support, and progress indicators.
 
 ---
 
