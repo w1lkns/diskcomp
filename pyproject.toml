@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "diskcomp"
-version = "1.0.1"
+version = "1.0.2"
 description = "Compare two drives and find duplicate files. Zero dependencies, cross-platform, with undo."
 authors = [
     {name = "Wilkins Morales", email = "wilkinscom@gmail.com"}
