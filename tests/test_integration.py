@@ -147,6 +147,7 @@ class TestPhase3Integration(unittest.TestCase):
     """Integration tests for Phase 3: Interactive Drive Picker + Health Checks."""
 
     @patch('diskcomp.cli.input')
+    @patch('diskcomp.cli.run_post_scan_menu')
     @patch('diskcomp.cli.ReportWriter')
     @patch('diskcomp.cli.DuplicateClassifier')
     @patch('diskcomp.cli.FileHasher')
@@ -161,7 +162,7 @@ class TestPhase3Integration(unittest.TestCase):
             self, mock_ui_factory, mock_picker, mock_isdir, mock_access,
             mock_health_check, mock_display_health, mock_scanner_class,
             mock_hasher_class, mock_classifier_class, mock_reporter_class,
-            mock_input):
+            mock_run_post_scan_menu, mock_input):
         """Test full workflow: interactive picker → health checks → scan → report."""
         # Setup UI mock
         mock_ui = MagicMock()
@@ -237,9 +238,12 @@ class TestPhase3Integration(unittest.TestCase):
         mock_reporter.output_path = '/tmp/diskcomp-report.csv'
         mock_reporter_class.return_value = mock_reporter
 
+        # Setup run_post_scan_menu to return 'skipped_deletion'
+        mock_run_post_scan_menu.return_value = 'skipped_deletion'
+
         # Interactive mode: '1' selects "Compare two drives" from menu,
-        # 'y' confirms scan, '6' exits post-scan menu (no deletion)
-        mock_input.side_effect = ['1', 'y', '6']
+        # 'y' confirms scan (post-scan menu is mocked)
+        mock_input.side_effect = ['1', 'y']
 
         # Call main with empty args (triggers interactive mode)
         from diskcomp.cli import parse_args
@@ -402,7 +406,8 @@ class TestPhase3Integration(unittest.TestCase):
 class TestDeletionCLI(unittest.TestCase):
     """Integration tests for deletion CLI workflow."""
 
-    def test_delete_from_missing_report(self):
+    @patch('diskcomp.cli.os.path.isfile', return_value=False)
+    def test_delete_from_missing_report(self, mock_isfile):
         """--delete-from with missing report file returns error."""
         args = parse_args(['--delete-from', '/nonexistent/report.csv'])
         result = main(args)
@@ -467,7 +472,8 @@ class TestDeletionCLI(unittest.TestCase):
         finally:
             shutil.rmtree(temp_dir)
 
-    def test_undo_missing_log(self):
+    @patch('diskcomp.cli.os.path.isfile', return_value=False)
+    def test_undo_missing_log(self, mock_isfile):
         """--undo with missing log file returns error."""
         args = parse_args(['--undo', '/nonexistent/undo.json'])
         result = main(args)

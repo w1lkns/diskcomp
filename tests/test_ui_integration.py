@@ -349,18 +349,19 @@ class TestCLIUI(unittest.TestCase):
             mock_ui = MagicMock()
             mock_create.return_value = mock_ui
 
-            with patch('diskcomp.cli.input', side_effect=['y', '3']):
-                # Run CLI without dry-run to trigger hashing
-                args = [
-                    '--keep', self.keep_dir,
-                    '--other', self.other_dir
-                ]
-                from diskcomp.cli import parse_args
-                parsed = parse_args(args)
-                result = main(parsed)
+            with patch('diskcomp.cli.run_post_scan_menu', return_value='skipped_deletion'):
+                with patch('diskcomp.cli.input', return_value='y'):
+                    # Run CLI without dry-run to trigger hashing
+                    args = [
+                        '--keep', self.keep_dir,
+                        '--other', self.other_dir
+                    ]
+                    from diskcomp.cli import parse_args
+                    parsed = parse_args(args)
+                    result = main(parsed)
 
-                # Verify start_hash was called
-                self.assertGreater(mock_ui.start_hash.call_count, 0)
+                    # Verify start_hash was called
+                    self.assertGreater(mock_ui.start_hash.call_count, 0)
 
     def test_cli_ui_on_file_hashed_called(self):
         """Verify main() calls ui.on_file_hashed() during hashing."""
@@ -370,18 +371,19 @@ class TestCLIUI(unittest.TestCase):
             mock_ui = MagicMock()
             mock_create.return_value = mock_ui
 
-            with patch('diskcomp.cli.input', side_effect=['y', '3']):
-                # Run CLI without dry-run to trigger hashing
-                args = [
-                    '--keep', self.keep_dir,
-                    '--other', self.other_dir
-                ]
-                from diskcomp.cli import parse_args
-                parsed = parse_args(args)
-                result = main(parsed)
+            with patch('diskcomp.cli.run_post_scan_menu', return_value='skipped_deletion'):
+                with patch('diskcomp.cli.input', return_value='y'):
+                    # Run CLI without dry-run to trigger hashing
+                    args = [
+                        '--keep', self.keep_dir,
+                        '--other', self.other_dir
+                    ]
+                    from diskcomp.cli import parse_args
+                    parsed = parse_args(args)
+                    result = main(parsed)
 
-                # Verify on_file_hashed was called
-                self.assertGreater(mock_ui.on_file_hashed.call_count, 0)
+                    # Verify on_file_hashed was called
+                    self.assertGreater(mock_ui.on_file_hashed.call_count, 0)
 
     def test_cli_ui_show_summary_called(self):
         """Verify main() calls ui.show_summary() with correct stats."""
@@ -391,22 +393,23 @@ class TestCLIUI(unittest.TestCase):
             mock_ui = MagicMock()
             mock_create.return_value = mock_ui
 
-            with patch('diskcomp.cli.input', side_effect=['y', '3']):
-                # Run CLI without dry-run
-                args = [
-                    '--keep', self.keep_dir,
-                    '--other', self.other_dir
-                ]
-                from diskcomp.cli import parse_args
-                parsed = parse_args(args)
-                result = main(parsed)
+            with patch('diskcomp.cli.run_post_scan_menu', return_value='skipped_deletion'):
+                with patch('diskcomp.cli.input', return_value='y'):
+                    # Run CLI without dry-run
+                    args = [
+                        '--keep', self.keep_dir,
+                        '--other', self.other_dir
+                    ]
+                    from diskcomp.cli import parse_args
+                    parsed = parse_args(args)
+                    result = main(parsed)
 
-                # Verify show_summary was called
-                mock_ui.show_summary.assert_called_once()
+                    # Verify show_summary was called
+                    mock_ui.show_summary.assert_called_once()
 
-                # Verify arguments
-                call_args = mock_ui.show_summary.call_args
-                self.assertIn('duplicates_mb', call_args.kwargs)
+                    # Verify arguments
+                    call_args = mock_ui.show_summary.call_args
+                    self.assertIn('duplicates_mb', call_args.kwargs)
                 self.assertIn('duplicates_count', call_args.kwargs)
                 self.assertIn('unique_keep_mb', call_args.kwargs)
                 self.assertIn('unique_keep_count', call_args.kwargs)
