@@ -544,10 +544,10 @@ class TestDeletionOrchestrator(unittest.TestCase):
         candidates = [{'other_path': '/tmp/file.txt', 'size_mb': 1.0, 'hash': 'hash123'}]
         orchestrator = DeletionOrchestrator(candidates, self.mock_ui, os.path.join(self.test_dir, 'report.csv'))
 
-        with patch('builtins.input', return_value='yes'):
+        with patch('builtins.input', return_value='b'):  # Go back instead of invalid 'yes'
             result = orchestrator.batch_mode()
 
-        assert result.aborted is False, "Should not be aborted on wrong confirmation — only real Ctrl+C sets aborted"
+        assert result.aborted is True, "Should be aborted when user goes back with 'b'"
         assert result.files_deleted == 0, "No files should be deleted"
         assert result.files_skipped == len(candidates), "All files should be skipped"
 
@@ -571,12 +571,12 @@ class TestDeletionOrchestrator(unittest.TestCase):
         candidates = [{'other_path': test_file, 'size_mb': 2.0, 'hash': 'hash123'}]
         orchestrator = DeletionOrchestrator(candidates, self.mock_ui, os.path.join(self.test_dir, 'report.csv'))
 
-        with patch('builtins.input', return_value='yes'):  # Not DELETE, so should abort after preview
+        with patch('builtins.input', return_value='b'):  # Go back (abort)
             with patch('builtins.print') as mock_print:
                 result = orchestrator.batch_mode()
 
         # Preview should have been printed before the confirmation prompt
-        assert result.aborted is False, "Should not be aborted when DELETE not typed — only real Ctrl+C sets aborted"
+        assert result.aborted is True, "Should be aborted when user types 'b' to go back"
 
     def test_batch_mode_calls_ui_start_deletion(self):
         """Test that batch mode calls ui.start_deletion()."""
