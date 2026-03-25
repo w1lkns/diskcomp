@@ -438,8 +438,9 @@ class TestDeletionCLI(unittest.TestCase):
         finally:
             os.unlink(temp_report)
 
+    @patch('diskcomp.cli.show_action_menu', return_value='exit')
     @patch('diskcomp.cli.input', return_value='skip')
-    def test_delete_from_skip_mode(self, mock_input):
+    def test_delete_from_skip_mode(self, mock_input, mock_action_menu):
         """--delete-from with skip selection exits without deletion."""
         # Create temp directories with actual files
         temp_dir = tempfile.mkdtemp()
@@ -530,9 +531,10 @@ class TestDeletionCLI(unittest.TestCase):
         finally:
             os.unlink(temp_undo)
 
+    @patch('diskcomp.cli.show_action_menu', return_value='interactive')
     @patch('diskcomp.cli.input', return_value='interactive')
     @patch('diskcomp.deletion.DeletionOrchestrator')
-    def test_delete_from_interactive_mode(self, mock_orchestrator_class, mock_input):
+    def test_delete_from_interactive_mode(self, mock_orchestrator_class, mock_input, mock_action_menu):
         """--delete-from with interactive mode selection."""
         from diskcomp.types import DeletionResult
 
@@ -581,9 +583,10 @@ class TestDeletionCLI(unittest.TestCase):
         finally:
             shutil.rmtree(temp_dir)
 
+    @patch('diskcomp.cli.show_action_menu', return_value='batch')
     @patch('diskcomp.cli.input', return_value='batch')
     @patch('diskcomp.deletion.DeletionOrchestrator')
-    def test_delete_from_batch_mode(self, mock_orchestrator_class, mock_input):
+    def test_delete_from_batch_mode(self, mock_orchestrator_class, mock_input, mock_action_menu):
         """--delete-from with batch mode selection."""
         from diskcomp.types import DeletionResult
 
@@ -632,8 +635,9 @@ class TestDeletionCLI(unittest.TestCase):
         finally:
             shutil.rmtree(temp_dir)
 
+    @patch('diskcomp.cli.show_action_menu', return_value='exit')
     @patch('diskcomp.cli.input', return_value='')
-    def test_delete_from_empty_mode_choice(self, mock_input):
+    def test_delete_from_empty_mode_choice(self, mock_input, mock_action_menu):
         """--delete-from with empty mode choice (enter) exits without deletion."""
         temp_dir = tempfile.mkdtemp()
 
@@ -665,9 +669,10 @@ class TestDeletionCLI(unittest.TestCase):
         finally:
             shutil.rmtree(temp_dir)
 
+    @patch('diskcomp.cli.show_action_menu', return_value='batch')
     @patch('diskcomp.cli.input', return_value='batch')
     @patch('diskcomp.deletion.DeletionOrchestrator')
-    def test_delete_from_aborted_shows_message(self, mock_orchestrator_class, mock_input):
+    def test_delete_from_aborted_shows_message(self, mock_orchestrator_class, mock_input, mock_action_menu):
         """--delete-from shows abort message when aborted during batch."""
         from diskcomp.types import DeletionResult
 
