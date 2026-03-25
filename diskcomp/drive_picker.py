@@ -49,7 +49,11 @@ def _should_include_mount(mountpoint: str, fstype: str, device: str) -> bool:
     Returns:
         True if the mount should be shown to users, False if it should be filtered out
     """
-    # Include external drives and user-accessible volumes FIRST
+    # Always include root filesystem - this is the main user drive on most systems
+    if mountpoint == '/':
+        return True
+    
+    # Include common user-accessible mount points
     user_friendly_mounts = [
         '/home',               # Home directory (if separate partition)
     ]
@@ -57,54 +61,48 @@ def _should_include_mount(mountpoint: str, fstype: str, device: str) -> bool:
     if mountpoint in user_friendly_mounts:
         return True
     
-    # Include anything under /media, /mnt, or /Volumes (external drives)
+    # Include external drives and user mounts
     external_mount_patterns = ['/media/', '/mnt/', '/Volumes/']
     
     for pattern in external_mount_patterns:
         if mountpoint.startswith(pattern):
             return True
     
-    # EXCLUDE macOS system volumes - these are confusing for users
+    # EXCLUDE macOS system volumes (but not root /)
     macos_system_patterns = [
         '/System/Volumes/',     # /System/Volumes/VM, /System/Volumes/Preboot, etc.
-        '/',                    # Root filesystem (Macintosh HD) - usually read-only
     ]
     
     for pattern in macos_system_patterns:
-        if mountpoint == pattern or mountpoint.startswith(pattern):
+        if mountpoint.startswith(pattern):
             return False
     
-    # AFTER checking user-friendly mounts, exclude virtual/temporary filesystems
+    # Exclude virtual/temporary filesystems by type
     virtual_fstypes = {
         'tmpfs', 'devtmpfs', 'sysfs', 'proc', 'devpts', 'debugfs',
         'securityfs', 'pstore', 'cgroup', 'cgroup2', 'configfs',
         'fusectl', 'bpf', 'hugetlbfs', 'mqueue', 'ramfs'
     }
     
-    if fstype.lower() in virtual_fstypes:
+    if fstype in virtual_fstypes:
         return False
     
-    # Exclude system mount points by path patterns
+    # Exclude system paths by mount point
     system_mount_patterns = [
-        '/dev/',        # Device filesystem 
-        '/run/',        # Runtime data
-        '/sys/',        # System filesystem
-        '/proc/',       # Process filesystem  
-        '/tmp',         # Temporary files (usually tmpfs)
-        '/boot/',       # Boot partitions
-        '/snap/',       # Snap packages
-        '/var/snap/',   # Snap data
-        '/var/lib/docker/', # Docker overlay
+        '/dev/', '/sys/', '/proc/', '/run/', '/tmp/',
+        '/boot', '/boot/',  # Boot partitions (both /boot and /boot/*)
+        '/snap/', '/opt/', '/usr/', '/var/', '/etc/'
     ]
     
     for pattern in system_mount_patterns:
-        if mountpoint.startswith(pattern):
+        if mountpoint == pattern.rstrip('/') or mountpoint.startswith(pattern):
             return False
     
-    # For other mounts, be conservative - exclude unless it's clearly user data
-    # This catches things like /opt, /usr, /var on separate partitions
-    return False
-
+    # Include everything else (real filesystems that aren't system paths)
+    return True
+    
+    if fstype.lower() in virtual_fstypes:
+        return False
 
 def _get_drives_psutil() -> List[DriveInfo]:
     """
