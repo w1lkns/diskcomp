@@ -10,6 +10,8 @@
 
 Find and safely delete duplicate files — across two drives or within one. **Zero dependencies, cross-platform, with undo.**
 
+📋 **[View the Roadmap](ROADMAP.md)** — See what's planned for future versions
+
 ## ✨ Key Features
 
 - **🔍 Smart Detection** — SHA256 hashing finds true duplicates regardless of filename
@@ -312,10 +314,11 @@ python diskcomp.py --help
 
 ## 🤝 Support & Contributing
 
+- **📋 Planning & Roadmap:** [View what's planned](ROADMAP.md) for future versions
 - **🐛 Found a bug?** [Report it on GitHub Issues](https://github.com/w1lkns/diskcomp/issues)
-- **💡 Feature request?** [Share your idea](https://github.com/w1lkns/diskcomp/issues)  
+- **💡 Feature request?** [Check the roadmap](ROADMAP.md) or [share your idea](https://github.com/w1lkns/diskcomp/issues)  
 - **📖 Documentation?** [Improve the README](https://github.com/w1lkns/diskcomp/edit/main/README.md)
-- **🔧 Want to contribute?** [Fork & submit a PR](https://github.com/w1lkns/diskcomp/fork)
+- **🔧 Want to contribute code?** [Check good first issues](https://github.com/w1lkns/diskcomp/labels/good%20first%20issue) or [fork & submit a PR](https://github.com/w1lkns/diskcomp/fork)
 
 **⭐ Like diskcomp?** [Star it on GitHub](https://github.com/w1lkns/diskcomp) to show support!
 
