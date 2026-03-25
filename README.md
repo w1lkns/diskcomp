@@ -1,11 +1,11 @@
 # diskcomp
 
-[![CI](https://github.com/w1lkns/diskcomp/workflows/CI/badge.svg)](https://github.com/w1lkns/diskcomp/actions)
-[![PyPI version](https://img.shields.io/pypi/v/diskcomp.svg)](https://pypi.org/project/diskcomp/)
+[![CI](https://github.com/w1lkns/diskcomp/actions/workflows/ci.yml/badge.svg)](https://github.com/w1lkns/diskcomp/actions/workflows/ci.yml)
+[![PyPI version](https://badge.fury.io/py/diskcomp.svg)](https://badge.fury.io/py/diskcomp)
 [![Python versions](https://img.shields.io/pypi/pyversions/diskcomp.svg)](https://pypi.org/project/diskcomp/)
-[![Downloads](https://img.shields.io/pypi/dm/diskcomp.svg)](https://pypi.org/project/diskcomp/)
+[![Downloads](https://static.pepy.tech/badge/diskcomp)](https://pepy.tech/project/diskcomp)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![GitHub release](https://img.shields.io/github/release/w1lkns/diskcomp.svg)](https://github.com/w1lkns/diskcomp/releases/latest)
+[![GitHub release](https://img.shields.io/github/v/release/w1lkns/diskcomp.svg)](https://github.com/w1lkns/diskcomp/releases/latest)
 [![Platform support](https://img.shields.io/badge/platform-macOS%20%7C%20Linux%20%7C%20Windows-blue.svg)](#quick-install)
 [![Standalone binaries](https://img.shields.io/badge/binaries-macOS%20%7C%20Linux%20%7C%20Windows-green.svg)](https://github.com/w1lkns/diskcomp/releases/latest)
 
