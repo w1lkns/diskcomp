@@ -11,6 +11,7 @@ from typing import List, Optional, Dict
 
 from diskcomp.health import check_drive_health, get_filesystem_type, get_volume_label
 from diskcomp.types import DriveInfo
+from diskcomp.loading import QuickSpinner
 
 # Optional dependency: psutil for disk partitions
 try:
@@ -368,7 +369,8 @@ def interactive_drive_picker() -> Optional[Dict[str, str]]:
         Dict with {'keep': '/path/to/keep', 'other': '/path/to/other'}
         Returns None if fewer than 2 drives available or on error.
     """
-    drives = get_drives()
+    with QuickSpinner("Scanning drives..."):
+        drives = get_drives()
 
     if not drives:
         print("Error: No mounted drives detected.", file=sys.stderr)
@@ -434,7 +436,8 @@ def interactive_single_drive_picker() -> Optional[str]:
     Returns:
         Mountpoint string of the selected drive, or None on error.
     """
-    drives = get_drives()
+    with QuickSpinner("Scanning drives..."):
+        drives = get_drives()
 
     if not drives:
         print("Error: No mounted drives detected.", file=sys.stderr)
