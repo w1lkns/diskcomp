@@ -29,11 +29,13 @@ jobs:
           python-version: ${{ matrix.python-version }}
           cache: pip
 
-      - name: Install package
-        run: pip install -e .
+      - name: Install package and test dependencies
+        run: |
+          pip install -e .
+          pip install pytest
 
-      - name: Run tests
-        run: python -m unittest discover tests/
+      - name: Run tests with pytest
+        run: pytest tests/ -v --tb=short
 
       - name: Build and verify single-file version
         run: |
