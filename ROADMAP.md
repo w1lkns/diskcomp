@@ -18,8 +18,9 @@ diskcomp is actively developed with a focus on user feedback and real-world usag
 ## 🚀 Next Up: Solidify Foundation (v1.1-1.2)
 
 ### Critical UX Fixes
-- [ ] **Fix drive picker for macOS single-drive mode** — *Still showing 8+ system volumes (/, /System/Volumes/VM, etc.) instead of user-friendly drives*
-- [ ] **Add `--version` flag** (missing basic CLI feature) — *Issue #2*
+- [ ] **Fix drive picker for macOS single-drive mode** — *Still showing 8+ system volumes* — Issue #3
+- [ ] **Fix folder exclusion menu** — *"Skip certain folders" shows "No scan results available"* — Issue #4  
+- [ ] **Add `--version` flag** (missing basic CLI feature) — Issue #2
 - [ ] **Fix Linux binary builds** (CI permissions issue)
 
 ### User Experience Polish
