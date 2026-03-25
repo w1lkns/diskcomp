@@ -7,6 +7,37 @@ Find and safely delete duplicate files — across two drives or within one. Zero
 
 ## Quick Install
 
+**Download binary** (no Python required):
+
+**macOS:**
+```bash
+# Homebrew
+brew tap w1lkns/diskcomp
+brew install diskcomp
+
+# Or download directly
+curl -L -o diskcomp https://github.com/w1lkns/diskcomp/releases/latest/download/diskcomp-macos
+chmod +x diskcomp
+./diskcomp --help
+```
+
+**Linux:**
+```bash
+# Download directly  
+curl -L -o diskcomp https://github.com/w1lkns/diskcomp/releases/latest/download/diskcomp-linux
+chmod +x diskcomp
+./diskcomp --help
+```
+
+**Windows:**
+```cmd
+# Download diskcomp-windows.exe from GitHub Releases
+# https://github.com/w1lkns/diskcomp/releases/latest
+diskcomp-windows.exe --help
+```
+
+**Python install** (if you have Python):
+
 **pipx** (recommended — handles PATH automatically):
 ```bash
 pipx install diskcomp
@@ -25,14 +56,6 @@ diskcomp --help
 ```bash
 curl -O https://raw.githubusercontent.com/w1lkns/diskcomp/main/diskcomp.py
 python3 diskcomp.py --help
-```
-
-**Development install** (from source):
-```bash
-git clone https://github.com/w1lkns/diskcomp.git
-cd diskcomp
-pip install -e .
-diskcomp --help
 ```
 
 ## Quick Start
