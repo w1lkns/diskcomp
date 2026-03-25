@@ -34,6 +34,73 @@ def get_drives() -> List[DriveInfo]:
         return _get_drives_subprocess()
 
 
+def _should_include_mount(mountpoint: str, fstype: str, device: str) -> bool:
+    """
+    Determine if a mount point should be included in the drive list.
+    
+    Filters out system/virtual filesystems that users typically don't want to clean.
+    
+    Args:
+        mountpoint: Mount point path (e.g., "/", "/media/usb")
+        fstype: Filesystem type (e.g., "ext4", "tmpfs", "devtmpfs")
+        device: Device name (e.g., "/dev/sda1", "tmpfs")
+        
+    Returns:
+        True if the mount should be shown to users, False if it should be filtered out
+    """
+    # Special cases: include root and common user mount points FIRST
+    # This takes priority over filesystem type filtering
+    user_friendly_mounts = [
+        '/',                    # Root filesystem - where user data lives
+        '/home',               # Home directory (if separate partition)
+    ]
+    
+    if mountpoint in user_friendly_mounts:
+        return True
+    
+    # Include anything under /media or /mnt (external drives)
+    external_mount_patterns = ['/media/', '/mnt/']
+    
+    for pattern in external_mount_patterns:
+        if mountpoint.startswith(pattern):
+            return True
+    
+    # On macOS, also include /Volumes (external drives)
+    if mountpoint.startswith('/Volumes/'):
+        return True
+    
+    # AFTER checking user-friendly mounts, exclude virtual/temporary filesystems
+    virtual_fstypes = {
+        'tmpfs', 'devtmpfs', 'sysfs', 'proc', 'devpts', 'debugfs',
+        'securityfs', 'pstore', 'cgroup', 'cgroup2', 'configfs',
+        'fusectl', 'bpf', 'hugetlbfs', 'mqueue', 'ramfs'
+    }
+    
+    if fstype.lower() in virtual_fstypes:
+        return False
+    
+    # Exclude system mount points by path patterns
+    system_mount_patterns = [
+        '/dev/',        # Device filesystem 
+        '/run/',        # Runtime data
+        '/sys/',        # System filesystem
+        '/proc/',       # Process filesystem  
+        '/tmp',         # Temporary files (usually tmpfs)
+        '/boot/',       # Boot partitions
+        '/snap/',       # Snap packages
+        '/var/snap/',   # Snap data
+        '/var/lib/docker/', # Docker overlay
+    ]
+    
+    for pattern in system_mount_patterns:
+        if mountpoint.startswith(pattern):
+            return False
+    
+    # For other mounts, be conservative - exclude unless it's clearly user data
+    # This catches things like /opt, /usr, /var on separate partitions
+    return False
+
+
 def _get_drives_psutil() -> List[DriveInfo]:
     """
     Enumerate drives using psutil.disk_partitions().
@@ -44,6 +111,10 @@ def _get_drives_psutil() -> List[DriveInfo]:
     drives = []
     try:
         for partition in psutil.disk_partitions(all=False):
+            # Filter out system/virtual mount points
+            if not _should_include_mount(partition.mountpoint, partition.fstype, partition.device):
+                continue
+                
             health = check_drive_health(partition.mountpoint)
             volume_label = get_volume_label(partition.mountpoint)
             drive = DriveInfo(
@@ -164,6 +235,10 @@ def _get_drives_linux() -> List[DriveInfo]:
                         continue
 
                     fstype = get_filesystem_type(mountpoint)
+                    
+                    # Apply filtering to hide system mounts
+                    if not _should_include_mount(mountpoint, fstype, device):
+                        continue
 
                     try:
                         health = check_drive_health(mountpoint)
