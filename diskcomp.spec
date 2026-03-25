@@ -27,6 +27,7 @@ a = Analysis(
         'diskcomp.deletion',
         'diskcomp.benchmarker',
         'diskcomp.ansi_codes',
+        'diskcomp.loading',  # New loading animation module
     ],
     hookspath=[],
     hooksconfig={},

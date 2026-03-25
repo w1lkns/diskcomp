@@ -38,9 +38,18 @@ jobs:
           pip install -e .
           pip install pyinstaller
 
+      - name: Make build script executable (Unix)
+        if: runner.os != 'Windows'
+        run: chmod +x build_binary.sh
+
       - name: Build binary (Unix)
         if: runner.os != 'Windows'
-        run: ./build_binary.sh
+        run: |
+          echo "Building binary on ${{ matrix.os }}..."
+          ls -la build_binary.sh
+          ./build_binary.sh
+          echo "Build completed, checking output..."
+          ls -la dist/ || echo "No dist directory found"
 
       - name: Build binary (Windows)
         if: runner.os == 'Windows'
@@ -68,6 +77,22 @@ jobs:
           }
         shell: powershell
 
+      - name: Verify binary exists
+        run: |
+          if [ -f "${{ matrix.binary_path }}" ]; then
+            echo "✅ Binary found at ${{ matrix.binary_path }}"
+            file "${{ matrix.binary_path }}" || true
+            ls -la "${{ matrix.binary_path }}"
+          else
+            echo "❌ Binary not found at ${{ matrix.binary_path }}"
+            echo "Contents of current directory:"
+            ls -la
+            echo "Contents of dist directory (if exists):"
+            ls -la dist/ || echo "No dist directory"
+            exit 1
+          fi
+        shell: bash
+
       - name: Upload binary artifact
         uses: actions/upload-artifact@v4
         with:
@@ -80,6 +105,5 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: ${{ matrix.binary_path }}
-          name: ${{ matrix.artifact_name }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
