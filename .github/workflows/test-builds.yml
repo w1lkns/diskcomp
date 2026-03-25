@@ -1,0 +1,75 @@
+name: Test Binary Builds
+
+on:
+  workflow_dispatch:  # Manual trigger only
+    inputs:
+      test_platforms:
+        description: 'Platforms to test'
+        required: true
+        default: 'all'
+        type: choice
+        options:
+        - all
+        - ubuntu-only
+        - macos-only
+        - windows-only
+
+jobs:
+  build-test:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            artifact_name: diskcomp-linux-test
+            binary_path: dist/diskcomp
+          - os: macos-latest  
+            artifact_name: diskcomp-macos-test
+            binary_path: dist/diskcomp
+          - os: windows-latest
+            artifact_name: diskcomp-windows-test.exe
+            binary_path: dist/diskcomp.exe
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: |
+          pip install -e .
+          pip install pyinstaller
+
+      - name: Make build script executable (Unix)
+        if: runner.os != 'Windows'
+        run: chmod +x build_binary.sh
+
+      - name: Build binary (Unix)
+        if: runner.os != 'Windows'
+        run: |
+          echo "Testing binary build on ${{ matrix.os }}..."
+          ./build_binary.sh
+
+      - name: Build binary (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          if (Test-Path build) { Remove-Item -Recurse -Force build }
+          if (Test-Path dist) { Remove-Item -Recurse -Force dist }
+          pyinstaller diskcomp.spec --clean
+          if (Test-Path "dist/diskcomp.exe") {
+            Write-Host "✅ Windows binary built successfully"
+          } else {
+            Write-Host "❌ Windows binary build failed"
+            exit 1
+          }
+        shell: powershell
+
+      - name: Upload test artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: ${{ matrix.binary_path }}
+          retention-days: 7
