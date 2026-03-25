@@ -21,7 +21,7 @@ Find and safely delete duplicate files — across two drives or within one. **Ze
 - **📊 Rich Reports** — CSV/JSON output with file paths, sizes, hashes, and deletion recommendations
 - **🎯 Flexible Modes** — Compare two drives, clean single drive, interactive deletion, batch operations
 - **⚙️ Zero Dependencies** — Pure Python, optional Rich UI, works everywhere Python runs
-- **📦 Multiple Install Options** — pip, pipx, standalone binaries, or Homebrew
+- **📦 Multiple Install Options** — pip, pipx, standalone binaries (Homebrew coming in v1.1)
 
 ## 📊 Project Status
 
@@ -31,7 +31,7 @@ Find and safely delete duplicate files — across two drives or within one. **Ze
 - ✅ **Well Tested** — 285 tests, CI on 3 platforms × 3 Python versions  
 - ✅ **Production Ready** — Used for real data cleanup with safety guarantees
 - ✅ **Cross-Platform** — Native builds for macOS, Linux, Windows
-- ✅ **Multiple Distribution Channels** — PyPI, GitHub Releases, Homebrew ready
+- ✅ **Multiple Distribution Channels** — PyPI, GitHub Releases (Homebrew coming in v1.1)
 
 ## Quick Install
 
@@ -39,14 +39,14 @@ Find and safely delete duplicate files — across two drives or within one. **Ze
 
 **macOS:**
 ```bash
-# Homebrew
-brew tap w1lkns/diskcomp
-brew install diskcomp
-
-# Or download directly
+# Direct download (recommended)
 curl -L -o diskcomp https://github.com/w1lkns/diskcomp/releases/latest/download/diskcomp-macos
 chmod +x diskcomp
 ./diskcomp --help
+
+# Homebrew (coming in v1.1)
+# brew tap w1lkns/diskcomp
+# brew install diskcomp
 ```
 
 **Linux:**
