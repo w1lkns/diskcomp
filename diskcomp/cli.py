@@ -1312,7 +1312,7 @@ def main(args=None):
                 ui.close()
                 return 1
 
-            ui.ok(f"Cleaning up: {single_path}")
+            ui.ok(f"Scanning: {single_path}")
 
         # Validate path
         if not os.path.isdir(single_path):
