@@ -436,7 +436,7 @@ def orchestrate_deletion(context: NavigationContext, ui, mode: str):
     orchestrator = DeletionOrchestrator(
         candidates=filtered_results.get('duplicates', []),
         ui=ui,
-        report_dir=os.path.dirname(context.report_path) if context.report_path else os.getcwd()
+        report_path=context.report_path or os.path.join(os.getcwd(), 'diskcomp-report.csv')
     )
 
     if mode == 'interactive':
